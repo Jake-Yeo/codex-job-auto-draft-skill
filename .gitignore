@@ -1,0 +1,8 @@
+__pycache__/
+.venv/
+profile.json
+profile.html
+attachment-extension/
+attachment-bridge.json
+active-draft.json*
+materials/

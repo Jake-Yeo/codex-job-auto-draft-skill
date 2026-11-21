@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "AutoApply PDF Uploads",
+  "short_name": "AutoApply PDFs",
+  "version": "3.1.0",
+  "description": "Attach approved résumé and cover-letter PDFs to the current application.",
+  "permissions": ["tabs", "tabGroups", "scripting", "alarms"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {"service_worker": "worker.js"},
+  "action": {"default_title": "Check for a local PDF upload request"}
+}

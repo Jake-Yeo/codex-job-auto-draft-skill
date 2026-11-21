@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Job Applications setup</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #111713;
+      color: #f0f4ee;
+      --muted: #b7c6b9;
+      --line: #3a4e40;
+      --accent: #a6e5b9;
+      --code: #121c15;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(860px, calc(100% - 40px));
+      margin: auto;
+      padding: 52px 0 72px;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 32px;
+    }
+
+    .tabs button {
+      flex: 1 1 0;
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: .95rem;
+      white-space: normal;
+    }
+
+    .tabs button:hover {
+      background: #1b2820;
+    }
+
+    .tabs button[aria-selected="true"] {
+      border-bottom-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tab-panel[hidden] {
+      display: none;
+    }
+
+    .tab-panel:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      letter-spacing: -.035em;
+      line-height: 1.12;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      letter-spacing: -.02em;
+      line-height: 1.25;
+    }
+
+    h3 {
+      font-size: 1.08rem;
+      line-height: 1.35;
+    }
+
+    p {
+      color: var(--muted);
+    }
+
+    header p {
+      margin-top: 12px;
+      max-width: 65ch;
+    }
+
+    section {
+      margin-top: 42px;
+    }
+
+    .notice {
+      margin-top: 24px;
+      padding: 13px 16px;
+      border: 1px solid #766b4b;
+      border-radius: 10px;
+      background: #29271d;
+      font-size: .9rem;
+    }
+
+    .notice strong {
+      color: #f3d498;
+    }
+
+    .flow>p {
+      margin-top: 8px;
+      max-width: 68ch;
+    }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 20px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .comparison>div {
+      padding: 20px 20px 20px 0;
+    }
+
+    .comparison>div+div {
+      border-left: 1px solid var(--line);
+      padding-left: 20px;
+      padding-right: 0;
+    }
+
+    .state {
+      color: var(--accent);
+      font-size: .82rem;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .route {
+      margin-top: 8px;
+      color: #f0f4ee;
+      font-size: 1.05rem;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    .explain {
+      margin-top: 7px;
+      font-size: .87rem;
+    }
+
+    .steps {
+      list-style: none;
+      counter-reset: step;
+      margin: 18px 0 0;
+      padding: 0;
+    }
+
+    .steps>li {
+      position: relative;
+      counter-increment: step;
+      padding: 23px 0 0 48px;
+      border-top: 1px solid var(--line);
+    }
+
+    .steps>li+li {
+      margin-top: 24px;
+    }
+
+    .steps>li::before {
+      content: counter(step);
+      position: absolute;
+      top: 21px;
+      left: 0;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid #5b8267;
+      border-radius: 8px;
+      color: var(--accent);
+      font-size: .85rem;
+      font-weight: 750;
+    }
+
+    .step-body>p {
+      margin-top: 6px;
+      max-width: 67ch;
+    }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    code {
+      color: #c7efcf;
+    }
+
+    .target {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-top: 13px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--code);
+    }
+
+    .target code {
+      flex: 1;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: .8rem;
+      line-height: 1.45;
+    }
+
+    button {
+      min-height: 34px;
+      padding: 5px 10px;
+      border: 1px solid #6d9775;
+      border-radius: 7px;
+      background: #263d2c;
+      color: #d5f8dc;
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #33543b;
+    }
+
+    button:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .payload-tools {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .payload-tools span {
+      color: var(--muted);
+      font-size: .85rem;
+    }
+
+    details {
+      margin-top: 10px;
+    }
+
+    summary {
+      width: fit-content;
+      color: var(--accent);
+      font-size: .88rem;
+      cursor: pointer;
+    }
+
+    pre {
+      max-height: 360px;
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--code);
+      color: #d4ead7;
+      font-size: .77rem;
+      line-height: 1.5;
+    }
+
+    pre code {
+      color: inherit;
+    }
+
+    footer {
+      margin-top: 42px;
+      padding-top: 17px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .84rem;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    ::selection {
+      color: #101713;
+      background: #a6e5b9;
+    }
+
+    @media (max-width: 640px) {
+      main {
+        width: min(100% - 32px, 860px);
+        padding-top: 32px;
+      }
+
+      .comparison {
+        grid-template-columns: 1fr;
+      }
+
+      .comparison>div,
+      .comparison>div+div {
+        padding: 16px 0;
+        border-left: 0;
+      }
+
+      .comparison>div+div {
+        border-top: 1px solid var(--line);
+      }
+
+      .steps>li {
+        padding-left: 40px;
+      }
+
+      .target {
+        flex-wrap: wrap;
+      }
+
+      .target code {
+        flex-basis: 100%;
+      }
+    }
+
+    @media print {
+      :root {
+        color-scheme: light;
+        background: #fff;
+        color: #172219;
+        --muted: #34483a;
+        --line: #9cab9e;
+        --accent: #225d34;
+        --surface: #fff;
+        --code: #fff;
+      }
+
+      main {
+        padding: 20px 0;
+      }
+
+      .notice {
+        background: #fff;
+      }
+
+      .notice strong,
+      .route,
+      code,
+      pre {
+        color: #172219;
+      }
+
+      button {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="skill-panel">
+      <header>
+        <h1>Set up Job Applications</h1>
+        <p>Connect ChatGPT to Chrome, load AutoApply for PDF uploads, and set up your private profile.</p>
+      </header>
+
+      <section aria-labelledby="skill-setup-title">
+        <h2 id="skill-setup-title">Skill setup</h2>
+        <ol class="steps">
+          <li>
+            <div class="step-body">
+              <h3>Install the portable skill</h3>
+              <p>With Python 3.10 or later installed, place this folder at <code>~/.codex/skills/job-applications/</code>.
+                Use a clean destination if you already have a customized copy.</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              <h3>Connect ChatGPT to Chrome</h3>
+              <p>In ChatGPT desktop, go to <strong>Settings → Computer Use → Google Chrome</strong>. If you see
+                <strong>Install</strong>, follow the prompt to add the ChatGPT extension. When Chrome shows
+                <strong>Manage</strong>, it’s connected. Use this same Chrome profile for the upload extension and your application tabs.
+              </p>
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              <h3>Load AutoApply PDF Uploads</h3>
+              <p>Run the build command in Terminal. It creates this computer’s extension folder and prints its path.</p>
+              <div class="target">
+                <code>python3 ~/.codex/skills/job-applications/scripts/attach_documents.py build</code>
+                <button type="button" data-skill-copy aria-label="Copy extension build command">Copy command</button>
+              </div>
+              <p>In Chrome, open <code>chrome://extensions</code>, turn on <strong>Developer mode</strong>,
+                and choose <strong>Load unpacked</strong>. Select the path printed by the build. The default folder is:</p>
+              <div class="target">
+                <code>~/.local/share/job-applications/attachment-extension</code>
+                <button type="button" data-skill-copy aria-label="Copy extension folder path">Copy path</button>
+              </div>
+              <p>Look for <strong>AutoApply PDF Uploads</strong>. If it’s already installed,
+                use its reload button after rebuilding.</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              <h3>Set up your profile</h3>
+              <p>In a local Codex chat, send the setup prompt. The skill will ask for the details, documents,
+                and links still missing from your profile.</p>
+              <div class="target">
+                <code>$job-applications setup</code>
+                <button type="button" data-skill-copy aria-label="Copy profile setup prompt">Copy prompt</button>
+              </div>
+              <p>Your answers and generated profile page stay in the private data folder on this computer.</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              <h3>Start a draft batch</h3>
+              <p>Group your application tabs under <code>jobs</code>. In a local Codex chat, select <code>@Chrome</code>
+                and ask the skill to draft them.</p>
+              <div class="target">
+                <code>Use $job-applications to draft the tabs in my Chrome jobs group.</code>
+                <button type="button" data-skill-copy aria-label="Copy draft batch prompt">Copy prompt</button>
+              </div>
+              <p>The skill uses your saved profile and résumé. Review the drafts and attachments in Chrome before you submit.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <footer>
+        <a href="https://learn.chatgpt.com/docs/chrome-extension#setup-your-browser">Connect Chrome to ChatGPT</a>
+        · <a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked">Load a
+          local Chrome extension</a>
+      </footer>
+      <p class="sr-only" data-skill-copy-status role="status"></p>
+      <script>
+        (() => {
+          const panel = document.getElementById("skill-panel");
+          const status = panel.querySelector("[data-skill-copy-status]");
+          for (const button of panel.querySelectorAll("[data-skill-copy]")) {
+            button.addEventListener("click", async () => {
+              const code = button.parentElement.querySelector("code");
+              try {
+                await navigator.clipboard.writeText(code.textContent.trim());
+                button.textContent = "Copied";
+                status.textContent = "Copied to clipboard.";
+              } catch {
+                const range = document.createRange();
+                range.selectNodeContents(code);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                const keys = /Mac/.test(navigator.platform) ? "⌘C" : "Ctrl+C";
+                button.textContent = "Press " + keys;
+                status.textContent = "Text selected. Press " + keys + " to copy.";
+              }
+            });
+          }
+        })();
+      </script>
+    </div>
+  </main>
+</body>
+</html>

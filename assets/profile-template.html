@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>Applicant profile</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font: 16px/1.5 system-ui, -apple-system, sans-serif;
+      color: #1e2824;
+      background: #f4f5f0;
+      --surface: #fff;
+      --muted: #586660;
+      --edge: #d8dfd8;
+      --accent: #235945;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { margin: auto; width: min(1120px, calc(100% - 50px)); padding: 50px 0 44px; }
+    header { margin-bottom: 26px; }
+    h1, p, h2 { margin: 0; }
+    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 720; letter-spacing: .07em; text-transform: uppercase; }
+    h1 { margin: 6px 0 10px; font-size: clamp(2.2rem, 7vw, 3.55rem); line-height: 1; letter-spacing: -.06em; }
+    .muted, header p, .source { color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(0, 235px) minmax(0, 1fr); gap: 26px; align-items: start; }
+    aside { position: sticky; top: 18px; max-height: calc(100dvh - 36px); overflow-y: auto; padding: 16px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface); }
+    label { display: block; margin-bottom: 5px; font-size: .87rem; font-weight: 650; }
+    input { width: 100%; padding: 8px 10px; font: inherit; font-size: .87rem; border: 1px solid var(--edge); border-radius: 7px; color: inherit; background: var(--surface); }
+    nav { margin-top: 12px; }
+    nav a { display: block; padding: 5px 8px; border-radius: 5px; color: var(--accent); text-decoration: none; font-size: .87rem; overflow-wrap: anywhere; }
+    nav a small { color: var(--muted); }
+    nav a:hover { background: #eaf1eb; }
+    .module { margin-bottom: 10px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); overflow-wrap: anywhere; }
+    .module summary { display: flex; align-items: baseline; gap: 12px; padding: 13px 17px; cursor: pointer; font-weight: 670; }
+    .module summary::before { content: "›"; color: var(--accent); font-size: 1.2rem; line-height: 1; }
+    .module[open] summary::before { transform: rotate(90deg); }
+    .module summary span { margin-left: auto; padding-right: 5px; color: var(--muted); font-size: .76rem; font-weight: 500; white-space: nowrap; }
+    .module-body { padding: 13px 17px 16px; border-top: 1px solid var(--edge); }
+    .source { margin-bottom: 9px; font-size: .79rem; }
+    dl { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2.8fr); gap: 7px 13px; margin: 0; }
+    dt { color: var(--muted); font-size: .86rem; font-weight: 560; }
+    dd { min-width: 0; margin: 0; }
+    dd dl { padding-left: 10px; border-left: 1px solid var(--edge); }
+    ul { margin: 0; padding-left: 1.25em; }
+    li + li { margin-top: 4px; }
+    li:has(dl) + li { margin-top: 10px; }
+    .value { white-space: pre-wrap; }
+    #no-matches { padding: 14px 17px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 720px) {
+      main { width: calc(100% - 32px); padding-top: 32px; }
+      .layout { grid-template-columns: 1fr; gap: 14px; }
+      aside { position: static; max-height: none; }
+      nav { display: flex; gap: 4px 6px; flex-wrap: wrap; }
+      nav a { background: #edf3ee; }
+    }
+    @media (max-width: 430px) {
+      dl { grid-template-columns: 1fr; gap: 2px; }
+      dd + dt { margin-top: 6px; }
+      .module summary span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Job Applications</div>
+      <h1>Applicant profile</h1>
+      <p>Saved on this computer · <!-- SUMMARY --></p>
+    </header>
+    <div class="layout">
+      <aside>
+        <label for="filter">Find a section or detail</label>
+        <input id="filter" type="search" autocomplete="off" placeholder="Try education or résumé">
+        <nav aria-label="Profile sections"><!-- NAV --></nav>
+      </aside>
+      <section aria-label="Saved information">
+        <!-- MODULES -->
+        <p id="no-matches" class="muted" hidden>No sections match your search.</p>
+      </section>
+    </div>
+  </main>
+  <script>
+    const search = document.getElementById("filter");
+    const cards = [...document.querySelectorAll("details.module")];
+    const links = [...document.querySelectorAll("nav a")];
+    const savedOpen = cards.map(card => card.open);
+    const message = document.getElementById("no-matches");
+    search.addEventListener("input", () => {
+      const words = search.value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+      let visible = 0;
+      for (const [index, card] of cards.entries()) {
+        const text = card.textContent.toLocaleLowerCase();
+        const match = words.every(word => text.includes(word));
+        card.hidden = !match;
+        links[index].hidden = !match;
+        card.open = words.length ? match : savedOpen[index];
+        visible += Number(match);
+      }
+      message.hidden = visible > 0;
+    });
+    for (const [index, link] of links.entries()) {
+      link.addEventListener("click", () => { cards[index].open = true; });
+    }
+  </script>
+</body>
+</html>
