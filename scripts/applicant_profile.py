@@ -3,6 +3,7 @@
 
 import argparse
 from contextlib import contextmanager
+from hashlib import sha256
 from html import escape
 import json
 import os
@@ -11,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlsplit
 import webbrowser
 
 
@@ -19,6 +21,27 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 TEMPLATE = SKILL_DIR / "assets" / "profile-template.html"
 SETUP_PAGE = SKILL_DIR / "references" / "setup.html"
 MODULE_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,79}\Z")
+DOCUMENT_FIELDS = frozenset({"resume", "transcript", "cover_letter"})
+APPLICATION_MODULES = frozenset({
+    "cover-letters", "eligibility", "screening", "preferences", "self-identification",
+})
+RECORD_HEADINGS = {
+    "education": ("school", "degree", "field_of_study"),
+    "experience": ("title", "company", "location"),
+}
+ADDRESS_FIELDS = ("street", "unit", "city", "region", "postal_code", "country")
+CONTACT_LINKS = ("linkedin", "github", "portfolio", "website")
+FIELD_TITLES = {
+    "full_name": "Name",
+    "github": "GitHub",
+    "gpa": "GPA",
+    "gpa_basis": "GPA basis",
+    "gpa_numeric": "Numeric GPA",
+    "gpa_scale": "GPA scale",
+    "linkedin": "LinkedIn",
+    "phone_device_type": "Phone type",
+    "years_experience": "Years of experience",
+}
 
 BUILTIN_MODULES = {
     "contact": "Contact and links",
@@ -69,14 +92,23 @@ def read_json(path):
         raise ProfileError(f"Could not read {path.name} as JSON.") from exc
 
 
-def write_private(path, text):
+def write_private(path, contents):
     fd, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as output:
-            output.write(text)
+        with os.fdopen(fd, "wb") as output:
+            output.write(contents.encode("utf-8") if isinstance(contents, str) else contents)
         os.replace(name, path)
     finally:
         Path(name).unlink(missing_ok=True)
+
+
+def local_reference(directory, value):
+    if not isinstance(value, str) or not value.strip():
+        raise ProfileError("A saved file reference must be a local path.")
+    path = (directory / Path(value).expanduser()).resolve()
+    if not path.is_relative_to(directory):
+        raise ProfileError("Import linked files into the MCP data folder before using the profile.")
+    return path
 
 
 def markdown_modules(files):
@@ -123,11 +155,11 @@ def markdown_modules(files):
     return modules
 
 
-def module_view(state):
+def module_view(state, directory):
     modules = {mid: {"title": title, "fields": {}} for mid, title in BUILTIN_MODULES.items()}
     sources = state["sources"]
     if location := sources.get("autoapply"):
-        facts = read_json(Path(location))
+        facts = read_json(local_reference(directory, location))
         if not isinstance(facts, dict):
             raise ProfileError("The linked AutoApply profile should contain a JSON object.")
         groups = dict(AUTOAPPLY_GROUPS)
@@ -141,13 +173,18 @@ def module_view(state):
         extra = {key: value for key, value in facts.items() if key not in used}
         if extra:
             modules["saved-facts"] = {"title": "Other saved facts", "fields": extra}
+    document_keys = set(sources.get("documents", {}))
     modules["documents"]["fields"].update(sources.get("documents", {}))
-    modules.update(markdown_modules(sources.get("notes", [])))
+    modules.update(markdown_modules(local_reference(directory, path) for path in sources.get("notes", [])))
     for key, record in state["modules"].items():
         module = modules.setdefault(key, {"title": label(key), "fields": {}})
         if "title" in record:
             module["title"] = record["title"]
         module["fields"].update(record["fields"])
+    for key in document_keys | DOCUMENT_FIELDS:
+        value = modules["documents"]["fields"].get(key)
+        if value:
+            modules["documents"]["fields"][key] = str(local_reference(directory, value))
     return modules
 
 
@@ -168,38 +205,212 @@ def value_html(value):
 def fields_html(fields):
     if not fields:
         return '<p class="muted">Nothing saved here yet.</p>'
-    return "<dl>" + "".join(
-        f"<dt>{escape(label(key))}</dt><dd>{value_html(value)}</dd>"
-        for key, value in fields.items()
-    ) + "</dl>"
+    rows = []
+    for key, value in fields.items():
+        title = FIELD_TITLES.get(key, label(key))
+        long_text = isinstance(value, str) and (len(value) > 72 or "\n" in value)
+        wide = long_text or isinstance(value, (dict, list))
+        rows.append(
+            f'<div class="field{" wide" if wide else ""}">'
+            f"<dt>{escape(title)}</dt><dd>{value_html(value)}</dd></div>"
+        )
+    return '<dl class="fields">' + "".join(rows) + "</dl>"
+
+
+def take_text(fields, key):
+    value = fields.get(key)
+    if isinstance(value, str) and value.strip():
+        return escape(fields.pop(key))
+    return ""
+
+
+def address_html(key, record):
+    fields = record.copy()
+    parts = {}
+    for field in ADDRESS_FIELDS:
+        if type(fields.get(field)) in (int, float):
+            fields[field] = str(fields[field])
+        parts[field] = take_text(fields, field)
+        if fields.get(field) in (None, ""):
+            fields.pop(field, None)
+
+    country = parts["country"]
+    name = label(key)
+    if country and (len(key) == 2 or name.casefold() == country.casefold()):
+        name = ""
+    heading = " · ".join(part for part in (escape(name), country) if part)
+    title = f"<h4>{heading}</h4>" if heading else ""
+
+    unit = f'Unit {parts["unit"]}' if parts["unit"] else ""
+    street = ", ".join(part for part in (parts["street"], unit) if part)
+    region = " ".join(part for part in (parts["region"], parts["postal_code"]) if part)
+    area = ", ".join(part for part in (parts["city"], region) if part)
+    lines = "<br>".join(part for part in (street, area) if part)
+    postal = f"<address>{lines}</address>" if lines else ""
+    other = fields_html(fields) if fields else ""
+    body = title + postal + other
+    return f'<li>{body or fields_html({})}</li>'
+
+
+def addresses_html(addresses):
+    if isinstance(addresses, dict) and any(key in addresses for key in ADDRESS_FIELDS):
+        records = [("", addresses)]
+    elif isinstance(addresses, dict) and all(isinstance(record, dict) for record in addresses.values()):
+        records = addresses.items()
+    elif isinstance(addresses, list) and all(isinstance(record, dict) for record in addresses):
+        records = [("", record) for record in addresses]
+    else:
+        return value_html(addresses)
+    entries = "".join(address_html(key, record) for key, record in records)
+    return f'<ul class="address-list" role="list">{entries}</ul>'
+
+
+def contact_links_html(links):
+    entries = []
+    other = {}
+    for key, value in links.items():
+        address = value.strip() if isinstance(value, str) else ""
+        try:
+            url = urlsplit(address)
+        except ValueError:
+            other[key] = value
+            continue
+        if url.scheme not in {"http", "https"} or not url.hostname or any(char.isspace() for char in address):
+            other[key] = value
+            continue
+        title = escape(FIELD_TITLES.get(key, label(key)))
+        domain = escape(url.hostname.removeprefix("www."))
+        entries.append(
+            f'<li><a class="saved-link" href="{escape(address, quote=True)}" target="_blank" rel="noopener noreferrer">'
+            f'<span>{title}</span><small>{domain}</small></a></li>'
+        )
+    listed = f'<ul class="link-list" role="list">{"".join(entries)}</ul>' if entries else ""
+    return listed + (fields_html(other) if other else "")
+
+
+def contact_html(fields):
+    details = fields.copy()
+    addresses = details.pop("addresses", None)
+    links = {key: details.pop(key) for key in CONTACT_LINKS if key in details}
+    saved_links = details.pop("links", None)
+    if isinstance(saved_links, dict):
+        for key, value in saved_links.items():
+            links[key] = [links[key], value] if key in links and links[key] != value else value
+        saved_links = None
+
+    first, last = details.get("first_name"), details.get("last_name")
+    if all(isinstance(part, str) and part.strip() for part in (first, last)):
+        name = f"{first.strip()} {last.strip()}"
+        if details.get("full_name") in (None, "", name):
+            details["full_name"] = name
+            del details["first_name"], details["last_name"]
+    phone, device = details.get("phone"), details.get("phone_device_type")
+    if all(isinstance(part, str) and part.strip() for part in (phone, device)):
+        details["phone"] = f"{phone.strip()} · {device.strip()}"
+        del details["phone_device_type"]
+
+    priority = ("full_name", "first_name", "last_name", "email", "phone", "phone_device_type")
+    primary = {key: details.pop(key) for key in priority if key in details}
+    primary.update(details)
+    parts = [fields_html(primary)] if primary else []
+    if addresses not in (None, "", {}, []):
+        parts.append(f'<section class="contact-group"><h3>Addresses</h3>{addresses_html(addresses)}</section>')
+    if links or saved_links not in (None, "", []):
+        link_fields = contact_links_html(links)
+        extra_links = value_html(saved_links) if saved_links is not None else ""
+        parts.append(f'<section class="contact-group"><h3>Links</h3>{link_fields}{extra_links}</section>')
+    return "".join(parts) or fields_html({})
+
+
+def description_html(text):
+    lines = [line for line in text.splitlines() if line.strip()]
+    bullets = [re.fullmatch(r"\s*[•*-]\s+(.+)", line) for line in lines]
+    if bullets and all(bullets):
+        return value_html([match[1] for match in bullets])
+    return value_html(text)
+
+
+def record_html(record, heading_keys):
+    fields = record.copy()
+    names = [part for key in heading_keys if (part := take_text(fields, key))]
+    identity = ""
+    if names:
+        title, *context = names
+        subtitle = f'<p class="record-context">{" · ".join(context)}</p>' if context else ""
+        identity = f'<div><h3>{title}</h3>{subtitle}</div>'
+
+    start = take_text(fields, "start_date")
+    end = take_text(fields, "end_date")
+    if start and end:
+        period = f"{start} – {end}"
+    elif start:
+        period = f"From {start}"
+    else:
+        period = f"Until {end}" if end else ""
+    dates = f'<p class="record-dates">{period}</p>' if period else ""
+    heading = f'<div class="record-heading">{identity}{dates}</div>' if identity or dates else ""
+
+    narrative = ""
+    description = fields.get("description")
+    if isinstance(description, str) and description.strip():
+        narrative = f'<div class="record-description">{description_html(fields.pop("description"))}</div>'
+    extra = fields_html(fields) if fields else ""
+    body = heading + narrative + extra
+    return f'<li class="record">{body or fields_html({})}</li>'
+
+
+def module_fields_html(module_id, fields):
+    if module_id == "contact":
+        return contact_html(fields)
+    heading_keys = RECORD_HEADINGS.get(module_id)
+    if not heading_keys:
+        return fields_html(fields)
+
+    records = fields.get(module_id)
+    if isinstance(records, dict):
+        records = [records]
+    if not isinstance(records, list) or not records or not all(isinstance(record, dict) for record in records):
+        return fields_html(fields)
+
+    entries = "".join(record_html(record, heading_keys) for record in records)
+    rest = {key: value for key, value in fields.items() if key != module_id}
+    extra = fields_html(rest) if rest else ""
+    return f'<ul class="record-list" role="list">{entries}</ul>{extra}'
 
 
 def render_html(modules):
-    nav, cards = [], []
+    group_titles = {"details": "Profile", "applications": "Applications", "notes": "Saved notes"}
+    groups = {key: [] for key in group_titles}
+    panels = []
     for module_id, module in modules.items():
         safe_id = escape(module_id, quote=True)
         title = escape(module["title"])
         fields = module["fields"]
         notes = module.get("source")
-        nav_label = f'{title} <small>Notes</small>' if notes else title
-        nav.append(f'<a href="#{safe_id}">{nav_label}</a>')
         source = f'<p class="source">From {escape(notes)}</p>' if notes else ""
-        body = fields_html(fields)
-        badge = "Notes" if notes else f"{len(fields)} saved"
-        opened = " open" if fields and not notes and module_id != "self-identification" else ""
-        cards.append(
-            f'<details class="module" id="{safe_id}"{opened}>'
-            f'<summary>{title}<span>{badge}</span></summary>'
-            f'<div class="module-body">{source}{body}</div></details>'
+        body = value_html(fields["notes"]) if notes and fields.keys() == {"notes"} else module_fields_html(module_id, fields)
+        group = "notes" if notes else "applications" if module_id in APPLICATION_MODULES else "details"
+        groups[group].append(f'<a href="#{safe_id}">{title}</a>')
+        panels.append(
+            f'<article class="profile-panel" id="{safe_id}" aria-labelledby="title:{safe_id}">'
+            f'<h2 id="title:{safe_id}" tabindex="-1">{title}</h2>'
+            f'<div class="panel-body">{source}{body}</div></article>'
+        )
+    nav = []
+    for key, title in group_titles.items():
+        if not groups[key]:
+            continue
+        nav.append(
+            f'<section class="nav-group" aria-labelledby="group:{key}">'
+            f'<h2 id="group:{key}">{title}</h2>{"".join(groups[key])}</section>'
         )
     replacements = {
         "<!-- NAV -->": "".join(nav),
-        "<!-- MODULES -->": "\n".join(cards),
-        "<!-- SUMMARY -->": f"{sum(bool(item['fields']) for item in modules.values())} of {len(modules)} sections filled",
+        "<!-- MODULES -->": "\n".join(panels),
     }
     # Substitute once so applicant text cannot introduce another template token.
     return re.sub(
-        r"<!-- (?:NAV|MODULES|SUMMARY) -->",
+        r"<!-- (?:NAV|MODULES) -->",
         lambda match: replacements[match[0]],
         TEMPLATE.read_text(encoding="utf-8"),
     )
@@ -266,7 +477,7 @@ class ProfileStore:
     def load(self):
         if not self.state_path.exists():
             return {"version": SCHEMA_VERSION, "sources": {}, "modules": {}}
-        state = read_json(self.state_path)
+        state = read_json(local_reference(self.directory, self.state_path.name))
         if (not isinstance(state, dict) or state.get("version") != SCHEMA_VERSION
                 or not all(isinstance(state.get(key), dict) for key in ("sources", "modules"))):
             raise ProfileError("The saved profile has an unsupported format.")
@@ -287,23 +498,26 @@ class ProfileStore:
                 fcntl.flock(lock, fcntl.LOCK_EX)
             yield
 
+    def modules(self):
+        return module_view(self.load(), self.directory)
+
     def list_modules(self):
         return [{"id": key, "title": item["title"], "fields": len(item["fields"])}
-                for key, item in module_view(self.load()).items()]
+                for key, item in self.modules().items()]
 
     def read_module(self, module_id):
-        module = module_view(self.load()).get(module_id)
+        module = self.modules().get(module_id)
         if module is None:
             raise ProfileError("That module is missing. List the saved modules for valid IDs.")
         return {"id": module_id, **module}
 
     def render(self):
         with self.locked():
-            write_private(self.page_path, render_html(module_view(self.load())))
+            write_private(self.page_path, render_html(self.modules()))
         return self.page_path
 
     def save(self, state):
-        page = render_html(module_view(state))
+        page = render_html(module_view(state, self.directory))
         state_json = json.dumps(state, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
         write_private(self.state_path, state_json)
         write_private(self.page_path, page)
@@ -335,24 +549,61 @@ class ProfileStore:
             self.save(state)
         return {"updated": [change["id"] for change in changes], "page": str(self.page_path)}
 
-    def link_sources(self, autoapply=None, notes=None, documents=None):
-        def existing(value):
-            path = Path(value).expanduser().resolve()
-            if not path.is_file():
-                raise ProfileError(f"File not found: {path.name}")
-            return str(path)
+    def import_file(self, value, category):
+        if not isinstance(value, (Path, str)) or not str(value).strip():
+            raise ProfileError("Provide a path to an applicant-approved local file.")
+        source = Path(value).expanduser().resolve()
+        if not source.is_file():
+            raise ProfileError(f"File not found: {source.name}")
+        if source.is_relative_to(self.directory):
+            return str(source)
+        contents = source.read_bytes()
+        digest = sha256(contents).hexdigest()
+        destination = local_reference(self.directory, f"imports/{category}/{digest}/{source.name}")
+        destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if not destination.is_file():
+            write_private(destination, contents)
+        return str(destination)
 
+    def import_documents(self, fields, keys):
+        return {
+            key: self.import_file(value, "documents") if key in keys and value else value
+            for key, value in fields.items()
+        }
+
+    def link_sources(self, autoapply=None, notes=None, documents=None):
         with self.locked():
             state = self.load()
             sources = state["sources"]
             if autoapply:
-                sources["autoapply"] = existing(autoapply)
+                sources["autoapply"] = self.import_file(autoapply, "facts")
             if notes:
-                sources["notes"] = list(dict.fromkeys(sources.get("notes", []) + [existing(path) for path in notes]))
+                copies = [self.import_file(path, "notes") for path in notes]
+                sources["notes"] = list(dict.fromkeys(sources.get("notes", []) + copies))
             if documents:
-                sources.setdefault("documents", {}).update({key: existing(path) for key, path in documents.items()})
+                sources.setdefault("documents", {}).update(self.import_documents(documents, documents.keys()))
             self.save(state)
         return {"page": str(self.page_path), "linked_sources": sorted(sources)}
+
+    def import_linked_files(self):
+        """Copy the active profile's previously linked files into its MCP store."""
+        with self.locked():
+            state = self.load()
+            sources = state["sources"]
+            if sources.get("autoapply"):
+                sources["autoapply"] = self.import_file(sources["autoapply"], "facts")
+            if "notes" in sources:
+                sources["notes"] = [self.import_file(path, "notes") for path in sources["notes"]]
+            if "documents" in sources:
+                docs = sources["documents"]
+                sources["documents"] = self.import_documents(docs, docs.keys())
+            if "documents" in state["modules"]:
+                record = state["modules"]["documents"]
+                record["fields"] = self.import_documents(
+                    record["fields"], DOCUMENT_FIELDS | set(sources.get("documents", {}))
+                )
+            self.save(state)
+        return {"page": str(self.page_path), "data_directory": str(self.directory)}
 
     def open(self):
         return open_local_page(self.render())
@@ -364,13 +615,15 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("open", "render", "list", "setup", "setup-status", "setup-help"):
         commands.add_parser(name)
+    commands.add_parser("import-linked-files", help="Import files already linked in a legacy profile into its MCP data folder.")
     commands.add_parser("read").add_argument("module")
     commands.add_parser("upsert", help="Read a module update as JSON on stdin.")
-    link = commands.add_parser("link", help="Link your existing files without changing them.")
+    link = commands.add_parser("link", help="Import private copies of approved existing files into the MCP data folder.")
     link.add_argument("--autoapply-json", type=Path)
     link.add_argument("--notes", type=Path, action="append")
     link.add_argument("--resume", type=Path)
     link.add_argument("--transcript", type=Path)
+    link.add_argument("--cover-letter", type=Path)
     args = parser.parse_args()
     store = ProfileStore(args.data_dir)
     try:
@@ -379,7 +632,7 @@ def main():
         elif args.command == "setup-help":
             result = open_local_page(SETUP_PAGE)
         elif args.command in {"setup", "setup-status"}:
-            result = setup_status(module_view(store.load()))
+            result = setup_status(store.modules())
             if args.command == "setup":
                 result.update(open_local_page(SETUP_PAGE))
         elif args.command == "render":
@@ -390,8 +643,16 @@ def main():
             result = store.read_module(args.module)
         elif args.command == "upsert":
             result = store.upsert(json.load(sys.stdin))
+        elif args.command == "import-linked-files":
+            result = store.import_linked_files()
         else:
-            documents = {key: value for key, value in (("resume", args.resume), ("transcript", args.transcript)) if value}
+            documents = {
+                key: path for key, path in (
+                    ("resume", args.resume),
+                    ("transcript", args.transcript),
+                    ("cover_letter", args.cover_letter),
+                ) if path
+            }
             if not (args.autoapply_json or args.notes or documents):
                 parser.error("link requires at least one file")
             result = store.link_sources(args.autoapply_json, args.notes, documents)

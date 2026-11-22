@@ -7,104 +7,394 @@
   <title>Applicant profile</title>
   <style>
     :root {
-      color-scheme: light;
+      color-scheme: dark;
       font: 16px/1.5 system-ui, -apple-system, sans-serif;
-      color: #1e2824;
-      background: #f4f5f0;
-      --surface: #fff;
-      --muted: #586660;
-      --edge: #d8dfd8;
-      --accent: #235945;
+      color: #eef3ee;
+      background: #141916;
+      --surface: #1c241f;
+      --hover: #26332b;
+      --selected: #2b3b31;
+      --line: #39483e;
+      --control-line: #65796b;
+      --muted: #b0c0b4;
+      --accent: #ace7c2;
+      --pad: 1.5rem;
     }
+
     * { box-sizing: border-box; }
     body { margin: 0; }
-    main { margin: auto; width: min(1120px, calc(100% - 50px)); padding: 50px 0 44px; }
-    header { margin-bottom: 26px; }
-    h1, p, h2 { margin: 0; }
-    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 720; letter-spacing: .07em; text-transform: uppercase; }
-    h1 { margin: 6px 0 10px; font-size: clamp(2.2rem, 7vw, 3.55rem); line-height: 1; letter-spacing: -.06em; }
-    .muted, header p, .source { color: var(--muted); }
-    .layout { display: grid; grid-template-columns: minmax(0, 235px) minmax(0, 1fr); gap: 26px; align-items: start; }
-    aside { position: sticky; top: 18px; max-height: calc(100dvh - 36px); overflow-y: auto; padding: 16px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface); }
-    label { display: block; margin-bottom: 5px; font-size: .87rem; font-weight: 650; }
-    input { width: 100%; padding: 8px 10px; font: inherit; font-size: .87rem; border: 1px solid var(--edge); border-radius: 7px; color: inherit; background: var(--surface); }
-    nav { margin-top: 12px; }
-    nav a { display: block; padding: 5px 8px; border-radius: 5px; color: var(--accent); text-decoration: none; font-size: .87rem; overflow-wrap: anywhere; }
-    nav a small { color: var(--muted); }
-    nav a:hover { background: #eaf1eb; }
-    .module { margin-bottom: 10px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); overflow-wrap: anywhere; }
-    .module summary { display: flex; align-items: baseline; gap: 12px; padding: 13px 17px; cursor: pointer; font-weight: 670; }
-    .module summary::before { content: "›"; color: var(--accent); font-size: 1.2rem; line-height: 1; }
-    .module[open] summary::before { transform: rotate(90deg); }
-    .module summary span { margin-left: auto; padding-right: 5px; color: var(--muted); font-size: .76rem; font-weight: 500; white-space: nowrap; }
-    .module-body { padding: 13px 17px 16px; border-top: 1px solid var(--edge); }
-    .source { margin-bottom: 9px; font-size: .79rem; }
-    dl { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2.8fr); gap: 7px 13px; margin: 0; }
-    dt { color: var(--muted); font-size: .86rem; font-weight: 560; }
-    dd { min-width: 0; margin: 0; }
-    dd dl { padding-left: 10px; border-left: 1px solid var(--edge); }
-    ul { margin: 0; padding-left: 1.25em; }
-    li + li { margin-top: 4px; }
-    li:has(dl) + li { margin-top: 10px; }
-    .value { white-space: pre-wrap; }
-    #no-matches { padding: 14px 17px; }
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-    [hidden] { display: none !important; }
-    @media (max-width: 720px) {
-      main { width: calc(100% - 32px); padding-top: 32px; }
-      .layout { grid-template-columns: 1fr; gap: 14px; }
-      aside { position: static; max-height: none; }
-      nav { display: flex; gap: 4px 6px; flex-wrap: wrap; }
-      nav a { background: #edf3ee; }
+    main {
+      width: min(100% - 3rem, 76rem);
+      margin-inline: auto;
+      padding-block: 2.5rem 4rem;
     }
-    @media (max-width: 430px) {
-      dl { grid-template-columns: 1fr; gap: 2px; }
-      dd + dt { margin-top: 6px; }
-      .module summary span { display: none; }
+    h1, h2, h3, h4, p, dl { margin: 0; }
+    h1 {
+      font-size: 2rem;
+      line-height: 1.18;
+      font-weight: 680;
+      letter-spacing: -.03em;
+    }
+    .page-header {
+      margin-block-end: 1.5rem;
+      padding-block-end: 1.25rem;
+      border-block-end: 1px solid var(--line);
+    }
+    .page-header p { margin-block-start: .25rem; }
+    .page-header p, .source, .muted { color: var(--muted); font-size: .875rem; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 14rem minmax(0, 1fr);
+      align-items: start;
+      gap: 1.5rem;
+    }
+    .rail, .panels { min-width: 0; }
+    .rail {
+      position: sticky;
+      inset-block-start: 1rem;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100dvh - 2rem);
+    }
+    .search-box { position: relative; color: var(--muted); }
+    .search-box::before, .search-box::after {
+      position: absolute;
+      inset-block-start: 50%;
+      content: "";
+      pointer-events: none;
+    }
+    .search-box::before {
+      inset-inline-start: .8125rem;
+      width: .625rem;
+      height: .625rem;
+      border: 1.5px solid currentColor;
+      border-radius: 50%;
+      translate: 0 -.4375rem;
+    }
+    .search-box::after {
+      inset-inline-start: 1.375rem;
+      width: .375rem;
+      height: 1.5px;
+      background: currentColor;
+      rotate: 45deg;
+      translate: 0 .3125rem;
+    }
+    input[type="search"], .section-toggle {
+      min-height: 2.625rem;
+      border: 1px solid var(--control-line);
+      border-radius: .5rem;
+      background: var(--surface);
+      color: #eef3ee;
+      font: inherit;
+      font-size: .875rem;
+    }
+    input[type="search"] {
+      width: 100%;
+      padding: .5625rem .625rem .5625rem 2.25rem;
+      caret-color: var(--accent);
+    }
+    input::placeholder { color: var(--muted); }
+    input:hover, .section-toggle:hover { border-color: var(--muted); }
+    .section-toggle { display: none; }
+    .search-status {
+      padding-inline: .625rem;
+      color: var(--muted);
+      font-size: .8125rem;
+    }
+    .search-status:not(:empty) { margin-block-start: .625rem; }
+    .section-nav {
+      min-height: 0;
+      margin-block-start: .875rem;
+      padding: .1875rem;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    .nav-group + .nav-group { margin-block-start: 1rem; }
+    .nav-group h2 {
+      padding: .25rem .5rem;
+      color: var(--muted);
+      font-size: .8125rem;
+      font-weight: 650;
+    }
+    .nav-group a {
+      display: block;
+      padding: .4375rem .5rem;
+      border-radius: .375rem;
+      color: inherit;
+      font-size: .875rem;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+    }
+    .nav-group a:hover { background: var(--hover); }
+    .nav-group a[aria-current] { background: var(--selected); color: var(--accent); font-weight: 620; }
+
+    .profile-panel {
+      padding: var(--pad);
+      border: 1px solid var(--line);
+      border-radius: .75rem;
+      background: var(--surface);
+      overflow-wrap: anywhere;
+    }
+    .profile-panel + .profile-panel { margin-block-start: 1rem; }
+    .profile-panel[hidden] + .profile-panel { margin-block-start: 0; }
+    .profile-panel > h2 {
+      margin-block-end: 1.125rem;
+      font-size: 1.375rem;
+      line-height: 1.25;
+      font-weight: 660;
+      letter-spacing: -.02em;
+    }
+    .profile-panel h3 { font-size: 1rem; font-weight: 660; }
+    .panel-message { color: var(--muted); }
+    .source { margin-block-end: .75rem; }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+      gap: .875rem 1.125rem;
+    }
+    .field { min-width: 0; }
+    .field.wide { grid-column: 1 / -1; }
+    dt { color: var(--muted); font-size: .8125rem; font-weight: 560; }
+    dd { min-width: 0; margin: .125rem 0 0; }
+    dd > .fields { margin-block-start: .375rem; }
+    .value { white-space: pre-wrap; }
+    .field.wide > dd > .value, .panel-body > .value {
+      display: block;
+      max-width: 74ch;
+    }
+
+    .contact-group, .record-list + .fields {
+      margin-block-start: 1.125rem;
+      padding-block-start: 1rem;
+      border-block-start: 1px solid var(--line);
+    }
+    .contact-group:first-child { margin-block-start: 0; padding-block-start: 0; border: 0; }
+    .contact-group > h3 { margin-block-end: .625rem; }
+    .address-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+      gap: 1rem 1.125rem;
+    }
+    .address-list h4 { margin-block-end: .25rem; font-size: .875rem; font-weight: 660; }
+    address { font-style: normal; }
+    .address-list .fields { margin-block-start: .5rem; }
+    .link-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+      gap: .625rem 1.125rem;
+    }
+    .link-list + .fields { margin-block-start: .75rem; }
+    .saved-link {
+      display: inline-grid;
+      max-width: 100%;
+      color: var(--accent);
+      font-size: .9375rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .saved-link span { text-decoration: underline; text-underline-offset: .16em; }
+    .saved-link:hover span { text-decoration-thickness: 2px; }
+    .saved-link small { color: var(--muted); font-size: .8125rem; font-weight: 400; }
+
+    ul { margin: 0; padding-inline-start: 1.25em; }
+    li + li { margin-block-start: .25rem; }
+    .record-list, .address-list, .link-list { padding: 0; list-style: none; }
+    .address-list > li, .link-list > li { min-width: 0; margin: 0; }
+    .record-list > li + li {
+      margin-block-start: 1.125rem;
+      padding-block-start: 1.125rem;
+      border-block-start: 1px solid var(--line);
+    }
+    .record > * + * { margin-block-start: .75rem; }
+    .record-heading {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: .25rem 1rem;
+    }
+    .record-context, .record-dates { color: var(--muted); font-size: .875rem; }
+    .record-context { margin-block-start: .125rem; }
+    .record-dates { font-variant-numeric: tabular-nums; }
+    .record-description { max-width: 74ch; }
+    .record-description ul { list-style: disc; }
+    .record-description li + li { margin-block-start: .375rem; }
+    .record-description li::marker { color: var(--muted); }
+
+    ::selection { background: var(--accent); color: #141916; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    input:focus-visible { outline-offset: 1px; }
+    [hidden] { display: none !important; }
+
+    @media (min-width: 48.01rem) and (min-height: 32rem) {
+      main {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        padding-block-end: 1.5rem;
+      }
+      .workspace { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+      .rail { position: static; min-height: 0; max-height: none; }
+      .panels { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+    }
+    @media (max-width: 48rem) {
+      :root { --pad: 1.125rem; }
+      main { width: calc(100% - 2rem); padding-block-start: 1.5rem; }
+      h1 { font-size: 1.75rem; }
+      .page-header { padding-block-end: 1rem; margin-block-end: 1rem; }
+      .workspace { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+      .rail { position: static; max-height: none; }
+      .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
+      .section-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        padding-inline: .6875rem;
+        cursor: pointer;
+      }
+      .section-toggle::after {
+        width: .375rem;
+        height: .375rem;
+        margin-block-end: .1875rem;
+        border: solid var(--muted);
+        border-width: 0 1.5px 1.5px 0;
+        rotate: 45deg;
+        content: "";
+      }
+      .section-toggle[aria-expanded="true"]::after { rotate: 225deg; margin-block: .1875rem 0; }
+      .enhanced .rail[data-open="false"] .section-nav { display: none; }
+      .section-nav { max-height: 46dvh; }
+      .nav-group a { padding-block: .625rem; }
+      .fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+    }
+    @media (max-width: 27rem) {
+      .fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr)); gap: .625rem .875rem; }
+      .record-heading { display: grid; grid-template-columns: minmax(0, 1fr); }
+      .address-list { row-gap: .875rem; }
     }
   </style>
 </head>
 <body>
   <main>
-    <header>
-      <div class="eyebrow">Job Applications</div>
+    <header class="page-header">
       <h1>Applicant profile</h1>
-      <p>Saved on this computer · <!-- SUMMARY --></p>
+      <p>Saved on this device</p>
     </header>
-    <div class="layout">
-      <aside>
-        <label for="filter">Find a section or detail</label>
-        <input id="filter" type="search" autocomplete="off" placeholder="Try education or résumé">
-        <nav aria-label="Profile sections"><!-- NAV --></nav>
+    <div class="workspace">
+      <aside class="rail" data-open="false">
+        <div class="controls">
+          <div class="search-box" role="search" hidden>
+            <input type="search" aria-label="Search profile" placeholder="Search profile" autocomplete="off">
+          </div>
+          <button type="button" class="section-toggle" aria-controls="profile:sections" aria-expanded="false" hidden>Sections</button>
+        </div>
+        <p class="search-status" role="status"></p>
+        <nav class="section-nav" id="profile:sections" aria-label="Profile sections"><!-- NAV --></nav>
       </aside>
-      <section aria-label="Saved information">
+      <div class="panels">
+        <p class="profile-panel panel-message" hidden></p>
         <!-- MODULES -->
-        <p id="no-matches" class="muted" hidden>No sections match your search.</p>
-      </section>
+      </div>
     </div>
   </main>
   <script>
-    const search = document.getElementById("filter");
-    const cards = [...document.querySelectorAll("details.module")];
-    const links = [...document.querySelectorAll("nav a")];
-    const savedOpen = cards.map(card => card.open);
-    const message = document.getElementById("no-matches");
-    search.addEventListener("input", () => {
-      const words = search.value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-      let visible = 0;
-      for (const [index, card] of cards.entries()) {
-        const text = card.textContent.toLocaleLowerCase();
-        const match = words.every(word => text.includes(word));
-        card.hidden = !match;
-        links[index].hidden = !match;
-        card.open = words.length ? match : savedOpen[index];
-        visible += Number(match);
-      }
-      message.hidden = visible > 0;
-    });
-    for (const [index, link] of links.entries()) {
-      link.addEventListener("click", () => { cards[index].open = true; });
+    const rail = document.querySelector(".rail");
+    const searchBox = rail.querySelector(".search-box");
+    const search = searchBox.querySelector("input");
+    const toggle = rail.querySelector(".section-toggle");
+    const nav = rail.querySelector("nav");
+    const status = rail.querySelector("[role=status]");
+    const panels = document.querySelector(".panels");
+    const message = panels.querySelector(".panel-message");
+    const normalize = text => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
+    const groups = Array.from(nav.querySelectorAll(".nav-group"), group => ({
+      group,
+      sections: Array.from(group.querySelectorAll("a"), link => {
+        const panel = document.getElementById(link.hash.slice(1));
+        const urls = Array.from(panel.querySelectorAll(".saved-link"), link => link.href);
+        return { link, panel, text: normalize([panel.textContent, ...urls].join(" ")) };
+      }),
+    }));
+    const sections = new Map(groups.flatMap(({ sections }) => sections.map(entry => [entry.panel.id, entry])));
+    const first = sections.get("contact") ?? sections.values().next().value;
+    let active = sections.get(location.hash.slice(1)) ?? first;
+
+    function setMenu(open) {
+      rail.dataset.open = String(open);
+      toggle.setAttribute("aria-expanded", String(open));
     }
+
+    function update() {
+      const words = normalize(search.value).trim().split(/\s+/).filter(Boolean);
+      let visible = 0;
+      for (const { group, sections } of groups) {
+        let matches = 0;
+        for (const entry of sections) {
+          const match = words.every(word => entry.text.includes(word));
+          const selected = match && entry === active;
+          entry.link.hidden = !match;
+          entry.panel.hidden = !selected;
+          if (selected) entry.link.setAttribute("aria-current", "location");
+          else entry.link.removeAttribute("aria-current");
+          matches += Number(match);
+        }
+        group.hidden = matches === 0;
+        visible += matches;
+      }
+      nav.hidden = visible === 0;
+      status.textContent = words.length && visible
+        ? visible === 1 ? "1 matching section" : visible + " matching sections"
+        : "";
+      message.hidden = Boolean(active && !active.panel.hidden);
+      if (!message.hidden) {
+        if (!sections.size) message.textContent = "No profile sections yet.";
+        else if (visible) message.textContent = "Select a matching section.";
+        else message.textContent = "No sections match. Try another search.";
+      }
+    }
+
+    function choose(entry) {
+      active = entry;
+      if (location.hash !== entry.link.hash) history.pushState(null, "", entry.link.hash);
+      setMenu(false);
+      update();
+      panels.scrollTop = 0;
+      const heading = entry.panel.querySelector("h2");
+      heading.focus({ preventScroll: true });
+      const top = heading.getBoundingClientRect().top;
+      if (top < 0 || top > window.innerHeight - 48) heading.scrollIntoView({ block: "start" });
+    }
+
+    function followHash() {
+      active = sections.get(location.hash.slice(1)) ?? first;
+      if (active?.link.hidden) search.value = "";
+      update();
+      panels.scrollTop = 0;
+    }
+
+    nav.addEventListener("click", event => {
+      const link = event.target.closest("a");
+      if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      choose(sections.get(link.hash.slice(1)));
+    });
+    toggle.addEventListener("click", () => setMenu(rail.dataset.open !== "true"));
+    search.addEventListener("input", () => {
+      setMenu(Boolean(search.value.trim()));
+      update();
+    });
+    search.addEventListener("keydown", event => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      const next = [...sections.values()].find(entry => !entry.link.hidden);
+      if (next) choose(next);
+    });
+    window.addEventListener("hashchange", followHash);
+    window.addEventListener("popstate", followHash);
+    document.documentElement.classList.add("enhanced");
+    searchBox.hidden = toggle.hidden = false;
+    update();
   </script>
 </body>
 </html>
