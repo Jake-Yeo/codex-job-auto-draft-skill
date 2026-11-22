@@ -2,15 +2,31 @@
 
 ## Direct browser controls and visual checks
 
-Use supported browser controls on the bound tab. Check the actual form after each substantial edit. For embedded uploads, keep the original tab and target its observed application frame. See [same-tab recovery](tab-workflow.md#recover-an-embedded-form-before-deferring) if the connection or input loses focus.
+Use the supported browser computer-use controls directly in the existing jobs tab. Inspect the form and screenshots, enter the saved information, and verify the actual values, selections, and uploaded files. The procedures below describe site-specific interactions and recovery.
 
 ## Replacing existing field text
 
-Replace the exact field's text using a supported control and check the value after it loses focus. For any input with a separate suggestion or Save step, commit the chosen control and verify the final value. Preserve correct existing entries and avoid duplicating parsed experience.
+Use the native tab's `setValue` to replace existing text when supported. Pasting after a field receives focus can append to its existing value, so preserve the selection when using paste and verify the result before continuing. Use a focused screenshot to check the exact value when the accessibility view redacts it.
 
 ## Resume and required uploads
 
-Select the applicant's approved documents from the private `documents` module and retain the originals. Inspect each dedicated résumé, cover-letter, transcript, or other upload field and check whether previously attached files remain. Verify filenames on the employer page after résumé parsing settles, then recheck answers that changed. Check a screenshot if the form's accessible text omits a filename.
+Select the applicant's approved documents from the private `documents` module and retain the originals. Inspect each dedicated résumé, cover-letter, transcript, or other upload field and check whether previously attached files remain.
+
+Reinspect the employer form after selection. The filename and the settled attachment state, such as an enabled Remove or Replace control, confirm the upload. A chooser accepting the path, an upload-in-progress label, or a local copy is insufficient. Repeat the attachment check on the final review page and retain the exact generated files for the final chat handoff.
+
+An upload timeout is a reason to inspect the form and repair the interaction. Check whether parsing is still running, the file already appears, or the site reports a type or size error. Confirm the original file exists and the control is for the intended document. Upload the résumé before filling fields when parsing can replace profile values.
+
+Follow the [upload order in the skill](../SKILL.md#fill-check-finish). On Ashby, attach the PDF in the required **Resume** field. **Autofill from resume** is a separate control. When using the browser chooser, follow the browser tool’s `file-uploads` guidance. Start `waitForEvent('filechooser')` before clicking the visible Attach or Choose file button and call the chooser’s `setFiles` with the exact absolute path.
+
+When using the file picker, click the visible **Choose file** label if the file input is hidden, as on Workable. In an embedded iCIMS form, if the **My Computer** button does not bring up the chooser, locate the observed file input inside its iframe, arm `waitForEvent('filechooser')`, and press Space on the input. Verify the attached filename after parsing.
+
+On Fitzii, **View Job Posting** opens a modal over the current form. Close it before attaching files. If you need the file picker, use the visible résumé or cover-letter drop area after closing the modal. Verify each filename in its own box. Check for short-answer fields revealed by skill ratings. If a custom Fitzii radio button or checkbox ignores its accessibility click, click the visible circle in a fresh screenshot and verify the selected state.
+
+For embedded Greenhouse forms, leave the employer page open and target the observed iframe through the attachment extension. Check the settled filename in that frame before trying another upload.
+
+Keep embedded uploads in the original browser tab. Opening an application iframe URL directly can lose the draft context. If the native app view shows an unrelated foreground window instead of the expected picker, return to browser-scoped controls on the original tab.
+
+If the browser tool loses its connection, recover the original tab by ID as described in [tab recovery](tab-workflow.md).
 
 ### Replace application documents
 
@@ -20,7 +36,7 @@ Confirm the approved new file and the exact draft selection before using the obs
 
 The portable folder includes the PDF attachment extension and its builder. Generate it with `python3 <skill-directory>/scripts/attach_documents.py build` and load the displayed private folder through [Skill setup](setup.html). The helper uses a temporary local connection. Keep the generated extension, bridge token, and PDFs outside the skill folder.
 
-For an active draft, pass the live numeric tab ID, exact observed tab URL, and each distinct visible field label. For an embedded form, add `--frame-url` with the observed frame origin and path. Keep tokens out of persistent notes.
+From the live draft, note the tab ID, exact employer URL and each distinct visible file-field label. If the input is in an iframe, pass its observed origin and path as `--frame-url` without embedded tokens. Match the dedicated résumé and cover-letter sections, including when their buttons both say **Attach**. Check for an existing attachment before issuing the command.
 
 ~~~sh
 python3 /path/to/job-applications/scripts/attach_documents.py upload \
@@ -35,19 +51,31 @@ Omit the flags for any document you do not need to attach. The résumé comes fr
 
 Use the saved education and work entries. Preserve supported dates, title, organization and location. Use office addresses only for employer fields, separately from the applicant's own address. If an expected graduation date is in the future and the widget refuses it, leave the end date open where possible and use a supported description or screening answer for the expected date.
 
-For Workday month/year controls, focus and enter each segment, then move focus away to commit it. Check validation and saved values. If a role description saves as **No Response**, return through the observed wizard steps, repair it, move focus away, then verify Review. For Workable month/year controls, commit digits using supported sequential key actions, close the calendar, click Update and verify the card.
+For Workday month/year steppers, focus and enter each segment with the supported keyboard controls, then move focus away to commit it. A painted value is not proof the containing date was saved. Check for date validation errors and confirm Save and Continue advances. Do not use ordinary paste/fill calls for these segmented controls; they can produce invalid months or years. Use the visible calendar if needed, then inspect again.
 
-Use **Save**, **Update**, or **Add** for each record. Compare imported entries first and verify the saved education, employer, date and description fields afterward.
+Workday can display a filled **Role Description** and save it as **No Response** if the input never loses focus. Enter the description and move focus away from the editor before advancing. Verify both entries on Review. If a description is missing, use the wizard's observed Back controls to repair it in the same draft.
+
+On Workable month/year fields, enter the six digits with the supported sequential key action, then press Escape to close that calendar before opening the next date. Verify the committed month and year, click Update, and check the saved card. If the end-date control rejects future dates for an in-progress degree, leave it open where possible and give the expected graduation date in the relevant screening answer.
+
+Check for entries already imported with the resume before adding anything. Finish each editor and use its Save, Update, or Add control. Verify the institution and employer cards, dates, and descriptions before advancing. Check that returning to a previous page did not reopen an unsaved editor or remove an entry.
 
 ### Approved work descriptions
 
 Use only the saved evidence in `experience` or `projects`. Adapt length and emphasis to form limits while preserving the applicant's role, qualifications, and supported outcomes. Avoid conflating a team result with an individual contribution.
 
+When a character limit applies, keep measurable results and delivered scope first. Examples include faster processing times, higher playback capacity, records migrated, and access groups supported. Treat team size as collaboration context when choosing the remaining bullets. Rank quantified bullets by relevance to the role, then use remaining space for the strongest relevant technical contributions. Condense whole points to fit the observed limit and preserve the original figures and qualifiers. Verify the saved description after the editor closes or on Review.
+
 ## Skills
 
 Start with the private `skills` module and supplement from the résumé and confirmed work. Choose the closest accurate tags for the role and retain supported existing chips. Verify each selected option before searching for the next. Distinguish tool use and integration from work the applicant has not claimed.
 
-For Workday **Type to Add Skills**, type a verified skill, press Enter, and wait for the results to settle. Select the exact item if a menu appears, then confirm the chip. For Greenhouse searchable menus, narrow by the exact label and press Enter only after identifying the correct result. For iCIMS select controls, focus the combobox, open with Enter, type the exact choice, then commit the observed option. Follow [SuccessFactors steps](browser-workflow.md#sap-successfactors) for UI5 choices and verify collapsed values and saved sections.
+In Workday’s **Type to Add Skills** control, type a supported skill and press Enter. A temporary **No Items** result can disappear as the search settles. If Enter opens the results menu, select the matching option. Verify its selected chip before searching for the next skill. Preserve existing chips, save the page, and check the skills on Review, including the **More** list if offered.
+
+For long searchable Greenhouse dropdowns, type the exact choice to reduce the menu to one result, inspect that result, and press Enter to commit it. Verify the selected value after the menu closes.
+
+For iCIMS custom dropdowns where a click misses, focus the combobox and press Enter to open it. If it has a search box, type the exact choice with `typeText` or `pressSequentially`. Use Down to highlight the verified result, then Enter and check the collapsed value. Wait for a dependent dropdown to update after its parent changes. Ordinary text fields can still use paste or fill.
+
+For SAP SuccessFactors UI5 dropdowns, typing can leave a search value without committing a selection. Open the menu, inspect the settled screenshot, select the visible option, and verify the collapsed value. Follow the [portal save steps](browser-workflow.md#sap-successfactors) to verify it persisted.
 
 ## Cover letters
 
