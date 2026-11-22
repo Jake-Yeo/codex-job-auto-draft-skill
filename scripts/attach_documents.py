@@ -10,16 +10,68 @@ from pathlib import Path
 import re
 import secrets
 import shutil
-import sys
 import threading
+from urllib.parse import urlsplit, urlunsplit
 
 from applicant_profile import ProfileError, ProfileStore, read_json, write_private
 from draft_guard import clean_url, load_state
 
 
 EXTENSION_SOURCE = Path(__file__).resolve().parents[1] / "extension"
+AUTOAPPLY_DIRECTORY = Path.home() / "IthacusProjects" / "AutoApply"
 DEFAULT_PORT = 8769
 MAX_PDF_BYTES = 8_000_000
+
+
+class BridgeUnavailable(RuntimeError):
+    pass
+
+
+def existing_autoapply_bridge(project):
+    folder = (project.expanduser() / "build" / "autofill-extension").resolve()
+    for filename, variable in (
+        ("bridge-config.js", "JOB_APPLICATIONS_BRIDGE"),
+        ("autoapply-config.js", "AUTOAPPLY_CONFIG"),
+    ):
+        path = folder / filename
+        if not path.is_file():
+            continue
+        try:
+            assignment = re.fullmatch(
+                rf"globalThis\.{variable}\s*=\s*(.+);\s*",
+                path.read_text(encoding="utf-8"),
+                re.DOTALL,
+            )
+            if assignment is None:
+                raise ValueError
+            config = json.loads(assignment[1])
+            base = urlsplit(config["base"])
+            if base.scheme != "http" or base.hostname not in {"127.0.0.1", "localhost"} or not base.port:
+                raise ValueError
+            return {"port": base.port, "token": config["token"], "extension_directory": str(folder)}
+        except (OSError, KeyError, TypeError, ValueError) as error:
+            raise ProfileError(f"Could not read the AutoApply upload configuration at {path}.") from error
+    return None
+
+
+def bridges(store, project):
+    existing = existing_autoapply_bridge(project)
+    if existing is not None:
+        yield existing
+    config_path = store.directory / "attachment-bridge.json"
+    if config_path.is_file():
+        config = read_json(config_path)
+        if existing is None or config["port"] != existing["port"] or config["token"] != existing["token"]:
+            yield {**config, "extension_directory": str(store.directory / "attachment-extension")}
+
+
+def draft_url(url):
+    parts = urlsplit(clean_url(url))
+    # Workday's apply, manual entry, and resume autofill URLs share one draft.
+    if parts.hostname.endswith(".myworkdayjobs.com"):
+        path = re.sub(r"/apply/(?:applyManually|autofillWithResume)/?$", "/apply", parts.path)
+        return urlunsplit(parts._replace(path=path))
+    return parts.geturl()
 
 
 def build_extension(store, requested_port):
@@ -52,7 +104,16 @@ def pdf_payload(path, label):
         content = document.read(MAX_PDF_BYTES + 1)
     if path.suffix.casefold() != ".pdf" or not content.startswith(b"%PDF-") or len(content) > MAX_PDF_BYTES:
         raise ValueError("Use a PDF under 8 MB.")
-    return {"label": label, "name": path.name, "data": base64.b64encode(content).decode("ascii")}
+    return {
+        "label": label,
+        "name": path.name,
+        "mime": "application/pdf",
+        "data": base64.b64encode(content).decode("ascii"),
+    }
+
+
+def field_label(label):
+    return " ".join(label.strip().rstrip("*").casefold().split())
 
 
 class AttachmentRequestHandler(BaseHTTPRequestHandler):
@@ -94,10 +155,15 @@ class AttachmentRequestHandler(BaseHTTPRequestHandler):
             return
         with bridge.lock:
             if self.path == "/poll":
+                bridge.extension_id = body.get("extension_id")
+                if bridge.command is None:
+                    bridge.done.set()
+                    self.reply(200, None)
+                    return
                 command = None if bridge.delivered else bridge.command
                 bridge.delivered = True
                 self.reply(200, command)
-            elif (bridge.delivered and body.get("id") == bridge.command["id"]
+            elif (bridge.command and bridge.delivered and body.get("id") == bridge.command["id"]
                   and isinstance(body.get("result"), dict) and not bridge.done.is_set()):
                 bridge.result = body["result"]
                 self.reply(200, {"received": True})
@@ -106,10 +172,17 @@ class AttachmentRequestHandler(BaseHTTPRequestHandler):
                 self.reply(409, {"error": "Unexpected attachment result"})
 
 
-def send_to_extension(config, target, timeout=48):
-    with ThreadingHTTPServer(("127.0.0.1", config["port"]), AttachmentRequestHandler) as server:
+def send_to_extension(config, target=None, timeout=48):
+    try:
+        connection = ThreadingHTTPServer(("127.0.0.1", config["port"]), AttachmentRequestHandler)
+    except OSError as error:
+        raise BridgeUnavailable(f"The local upload port {config['port']} is unavailable: {error}") from error
+    with connection as server:
         server.token = config["token"]
-        server.command = {"id": secrets.token_hex(12), "op": "attach-documents", "data": target}
+        server.command = None if target is None else {
+            "id": secrets.token_hex(12), "op": "attach-documents", "data": target,
+        }
+        server.extension_id = None
         server.delivered = False
         server.lock = threading.Lock()
         server.done = threading.Event()
@@ -117,22 +190,40 @@ def send_to_extension(config, target, timeout=48):
         worker.start()
         try:
             if not server.done.wait(timeout):
-                raise RuntimeError("No attachment result. Check the original form before retrying. Verify the extension is enabled or click its toolbar icon to check for a request.")
-            result = server.result
+                with server.lock:
+                    if server.delivered:
+                        raise RuntimeError("The extension received the upload but did not return a result. Inspect the employer form before retrying.")
+                    server.command = None
+                    raise BridgeUnavailable(
+                        f"No Chrome upload extension connected on local port {config['port']}."
+                    )
+            result = server.result if target is not None else {"extension_id": server.extension_id}
         finally:
             server.shutdown()
             worker.join()
-    if "error" in result or not isinstance(result.get("receipts"), list):
+    if target is not None and ("error" in result or not isinstance(result.get("receipts"), list)):
         raise RuntimeError(result.get("error", "The extension did not report the upload."))
-    return result["receipts"]
+    return result
+
+
+def connect(store, project, target=None):
+    unavailable = None
+    for config in bridges(store, project):
+        try:
+            return {
+                **send_to_extension(config, target),
+                "extension_directory": config["extension_directory"],
+            }
+        except BridgeUnavailable as error:
+            unavailable = error
+    if unavailable is not None:
+        raise unavailable
+    raise ProfileError("No existing AutoApply upload build or portable attachment extension was found.")
 
 
 def attach(store, args):
-    config_path = store.directory / "attachment-bridge.json"
-    if not config_path.is_file():
-        raise ProfileError("Build and load the local attachment extension first.")
     active = load_state(store.directory / "active-draft.json")["active"]
-    if not active or (active["tab_id"], active["url"]) != (str(args.tab_id), clean_url(args.url)):
+    if not active or active["tab_id"] != str(args.tab_id) or draft_url(active["url"]) != draft_url(args.url):
         raise ValueError("The tab and URL must match the active draft.")
     saved_documents = store.read_module("documents")["fields"]
     payloads, receipts = [], []
@@ -155,21 +246,39 @@ def attach(store, args):
             receipt = str(error) if isinstance(error, ValueError) else "The approved PDF could not be opened."
             receipts.append({"field": label, "status": "blocked", "detail": receipt})
     if payloads:
-        receipts.extend(send_to_extension(read_json(config_path), {
+        shared_field = len(payloads) == 2 and field_label(payloads[0]["label"]) == field_label(payloads[1]["label"])
+        if shared_field:
+            selection = {**payloads[0], "additionalFiles": [payloads[1]]}
+        result = connect(store, args.autoapply_dir, {
             "tab_id": args.tab_id,
             "expected_url": args.url,
             "frame_url": clean_url(args.frame_url) if args.frame_url else None,
-            "documents": payloads,
-        }))
+            "documents": [selection] if shared_field else payloads,
+        })
+        if shared_field and result["receipts"]:
+            receipt = result["receipts"][0]
+            files = receipt.get("files", [receipt.get("file")])
+            for payload in payloads:
+                file = payload["name"]
+                if file in files or receipt["status"] == "blocked":
+                    receipts.append({**receipt, "field": payload["label"], "file": file})
+                else:
+                    receipts.append({"field": payload["label"], "file": file, "status": "blocked",
+                                     "detail": "The extension did not report this file. Inspect the employer form before retrying."})
+        else:
+            receipts.extend(result["receipts"])
     return {"receipts": receipts}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path)
+    parser.add_argument("--autoapply-dir", type=Path, default=AUTOAPPLY_DIRECTORY,
+                        help="AutoApply project with the existing unpacked upload extension")
     commands = parser.add_subparsers(dest="command", required=True)
     build = commands.add_parser("build", help="Generate the Chrome extension in the private data folder.")
     build.add_argument("--port", type=int)
+    commands.add_parser("check", help="Check the Chrome connection without uploading files.")
     upload = commands.add_parser("upload", help="Attach PDFs to the active draft.")
     upload.add_argument("--tab-id", type=int, required=True)
     upload.add_argument("--url", required=True, help="The exact observed URL of the application tab")
@@ -182,13 +291,14 @@ def main():
     try:
         if args.command == "build":
             result = build_extension(store, args.port)
+        elif args.command == "check":
+            result = connect(store, args.autoapply_dir)
         else:
             if bool(args.cover_letter_field) != bool(args.cover_letter):
                 parser.error("Provide the cover-letter field and PDF path together.")
             labels = [label for label in (args.resume_field, args.cover_letter_field) if label]
-            normalized = {" ".join(label.strip().rstrip("*").casefold().split()) for label in labels}
-            if not labels or "" in normalized or len(normalized) != len(labels):
-                parser.error("Provide distinct, observed file-field labels.")
+            if not labels or not all(field_label(label) for label in labels):
+                parser.error("Provide observed file-field labels.")
             result = attach(store, args)
     except (OSError, ValueError, RuntimeError, ProfileError) as error:
         parser.exit(1, f"Attachment helper: {error}\n")

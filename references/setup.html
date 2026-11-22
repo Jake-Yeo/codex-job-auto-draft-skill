@@ -392,7 +392,7 @@
     <div id="skill-panel">
       <header>
         <h1>Set up Job Applications</h1>
-        <p>Connect ChatGPT to Chrome, load AutoApply for PDF uploads, and set up your private profile.</p>
+        <p>Connect the Browser Use Path 2 CLI to Chrome, load AutoApply for PDF uploads, and set up your private profile.</p>
       </header>
 
       <section aria-labelledby="skill-setup-title">
@@ -401,17 +401,23 @@
           <li>
             <div class="step-body">
               <h3>Install the portable skill</h3>
-              <p>With Python 3.10 or later installed, place this folder at <code>~/.codex/skills/job-applications/</code>.
+              <p>With Python 3.10 or later installed, place this folder at <code>~/.codex/skills/portable-job-applications-browser-use-cli/</code>.
                 Use a clean destination if you already have a customized copy.</p>
             </div>
           </li>
           <li>
             <div class="step-body">
-              <h3>Connect ChatGPT to Chrome</h3>
-              <p>In ChatGPT desktop, go to <strong>Settings → Computer Use → Google Chrome</strong>. If you see
-                <strong>Install</strong>, follow the prompt to add the ChatGPT extension. When Chrome shows
-                <strong>Manage</strong>, it’s connected. Use this same Chrome profile for the upload extension and your application tabs.
-              </p>
+              <h3>Connect the Browser Use Path 2 CLI to Chrome</h3>
+              <p>Install the <a href="https://github.com/browser-use/browser-use#path-2-cli">Path 2 CLI</a>
+                with uv and run its diagnostics.</p>
+              <pre><code>uv tool install --python 3.12 browser-use==1.0.8
+browser-use --doctor</code></pre>
+              <p>In the Chrome profile containing your application tabs, enable remote debugging at
+                <code>chrome://inspect/#remote-debugging</code>. In <code>chrome://extensions</code>, enable
+                <strong>Developer mode</strong>, choose <strong>Load unpacked</strong>, and select
+                <code>~/.codex/skills/portable-job-applications-browser-use-cli/browser-use-cli/extension</code>.
+                Chrome's debugger permission lets the inventory extension match Chrome tab IDs to the CLI's target IDs.
+                Use the same profile for the upload extension and your application tabs.</p>
             </div>
           </li>
           <li>
@@ -419,7 +425,7 @@
               <h3>Load AutoApply PDF Uploads</h3>
               <p>Run the build command in Terminal. It creates this computer’s extension folder and prints its path.</p>
               <div class="target">
-                <code>python3 ~/.codex/skills/job-applications/scripts/attach_documents.py build</code>
+                <code>python3 ~/.codex/skills/portable-job-applications-browser-use-cli/scripts/attach_documents.py build</code>
                 <button type="button" data-skill-copy aria-label="Copy extension build command">Copy command</button>
               </div>
               <p>In Chrome, open <code>chrome://extensions</code>, turn on <strong>Developer mode</strong>,
@@ -438,7 +444,7 @@
               <p>In a local Codex chat, send the setup prompt. The skill will ask for the details, documents,
                 and links still missing from your profile.</p>
               <div class="target">
-                <code>$job-applications setup</code>
+                <code>$portable-job-applications-browser-use-cli setup</code>
                 <button type="button" data-skill-copy aria-label="Copy profile setup prompt">Copy prompt</button>
               </div>
               <p>Your answers and generated profile page stay in the private data folder on this computer.</p>
@@ -447,10 +453,9 @@
           <li>
             <div class="step-body">
               <h3>Start a draft batch</h3>
-              <p>Group your application tabs under <code>jobs</code>. In a local Codex chat, select <code>@Chrome</code>
-                and ask the skill to draft them.</p>
+              <p>Group your application tabs under <code>jobs</code>. In a local Codex chat, ask the skill to draft them.</p>
               <div class="target">
-                <code>Use $job-applications to draft the tabs in my Chrome jobs group.</code>
+                <code>Use $portable-job-applications-browser-use-cli to draft the tabs in my Chrome jobs group.</code>
                 <button type="button" data-skill-copy aria-label="Copy draft batch prompt">Copy prompt</button>
               </div>
               <p>The skill uses your saved profile and résumé. Review the drafts and attachments in Chrome before you submit.</p>
@@ -460,8 +465,7 @@
       </section>
 
       <footer>
-        <a href="https://learn.chatgpt.com/docs/chrome-extension#setup-your-browser">Connect Chrome to ChatGPT</a>
-        · <a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked">Load a
+        <a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked">Load a
           local Chrome extension</a>
       </footer>
       <p class="sr-only" data-skill-copy-status role="status"></p>

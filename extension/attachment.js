@@ -26,9 +26,6 @@ globalThis.JobApplicationsAttachPDF = async function (request) {
   const inputs = all("input[type=file]");
   const fatalError = all("h1,h2,[role=heading]").filter(visible)
     .some(element => /^something went wrong$/i.test(text(element)));
-  if (all('input[type=password],input[autocomplete="one-time-code"]').some(visible)) {
-    throw Error("Account action pending. Verify the application in Chrome.");
-  }
   if(location.href!==request.expectedHref || fatalError) throw Error('Inspect the current application before uploading');
   const exact = value => String(value || '').trim().replace(/\s*\*$/, '').trim().replace(/\s+/g, ' ').toLowerCase();
   const matches = inputs.filter(e => e.type==='file' && !e.matches(':disabled,[aria-disabled=true]') &&
@@ -36,24 +33,41 @@ globalThis.JobApplicationsAttachPDF = async function (request) {
     [label(e),section(e)].some(name => exact(name)===exact(request.label)));
   if(matches.length!==1) throw Error('Expected one matching file input; inspect the field in Chrome');
   const input=matches[0], owner=fileOwner(input);
-  if(input.files?.length) {
-    if(input.files.length===1 && input.files[0].name===request.name) {
-      return {status:'check-in-chrome',detail:'The same filename is already selected'};
-    }
+  const documents = [request, ...(request.additionalFiles || [])];
+  const names = documents.map(file => file.name);
+  if (documents.length > 1 && !input.multiple) {
+    throw Error('The observed field accepts one file at a time');
+  }
+
+  const filenameRows = () => [...owner.querySelectorAll('[data-automation-id="file-upload-item-name"]')]
+    .filter(visible).map(text);
+  const staged = [...input.files];
+  const displayed = filenameRows();
+  const remaining = documents.filter(file =>
+    !displayed.includes(file.name) && !staged.some(existing => existing.name === file.name));
+  if (!remaining.length) {
+    return {status:'check-in-chrome',detail:'The requested filenames are already present',files:names};
+  }
+  if(staged.length && !input.multiple) {
     throw Error('A different file is already selected; inspect it before replacing');
   }
   // A site can retain an attachment in its UI after clearing its file input.
   const existing=[...owner.querySelectorAll('button,[role=button]')].some(button=>
     visible(button) && !button.matches(':disabled,[aria-disabled=true]') &&
     /^(?:remove|delete|replace)\s+(?:the\s+)?(?:attached\s+)?(?:file|attachment|résumé|resume|cover letter)\b/i.test(button.getAttribute('aria-label')||text(button)));
-  if(existing) return {status:'check-in-chrome',detail:'The form already shows attachment controls'};
+  if(existing && !input.multiple) return {status:'check-in-chrome',detail:'The form already shows attachment controls'};
   if(input.accept && !input.accept.split(',').some(type=>
     ['.pdf','application/pdf','application/*','*/*'].includes(type.trim().toLowerCase()))) {
     throw Error('The observed field does not accept PDFs');
   }
-  const bytes = Uint8Array.from(atob(request.data), char => char.charCodeAt(0));
   const transfer = new DataTransfer();
-  transfer.items.add(new File([bytes], request.name, {type: "application/pdf"}));
+  for (const file of staged) {
+    if (!displayed.includes(file.name)) transfer.items.add(file);
+  }
+  for (const file of remaining) {
+    const bytes = Uint8Array.from(atob(file.data), char => char.charCodeAt(0));
+    transfer.items.add(new File([bytes], file.name, {type: "application/pdf"}));
+  }
   input.files = transfer.files;
   input.dispatchEvent(new Event("change", {bubbles: true}));
 
@@ -65,10 +79,10 @@ globalThis.JobApplicationsAttachPDF = async function (request) {
         /upload failed|invalid file|file too large|unsupported file/i.test(receipt)) {
       return {status: "blocked", detail: "The employer form rejected the upload"};
     }
-    if (receipt.includes(request.name) && !/uploading|processing|parsing/i.test(receipt)) {
-      return {status: "accepted", detail: "The employer form shows the filename"};
+    if (names.every(name => receipt.includes(name)) && !/uploading|processing|parsing/i.test(receipt)) {
+      return {status: "accepted", detail: "The employer form shows the filenames", files:names};
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
-  return {status: "check-in-chrome", detail: "Check the attachment on the original form"};
+  return {status: "check-in-chrome", detail: "Check the attachments on the original form", files:names};
 };

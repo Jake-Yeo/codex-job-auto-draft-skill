@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "File Upload Helper",
+  "short_name": "File Upload",
+  "version": "3.0.0",
+  "description": "Fill existing tabs in your jobs group, with local facts and screenshot review.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "debugger",
+    "tabGroups",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "autoapply-worker.js"
+  },
+  "options_page": "autoapply-status.html"
+}

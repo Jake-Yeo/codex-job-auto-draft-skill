@@ -1,0 +1,33 @@
+{
+  "name": "JobWizard",
+  "version": "1.1.55",
+  "extension_id": "kbhgdbfkbgkokgkkdhnnlmkhnokjmfib",
+  "source": "/Users/jakeyeo/Library/Application Support/Google/Chrome/Default/Extensions/kbhgdbfkbgkokgkkdhnnlmkhnokjmfib/1.1.55_0",
+  "imported": "2026-11-14",
+  "files": {
+    "choiceOwnershipResolver.js": "ba32092268256492a66049b118620b9c627dc9dfda25185faed4a45f87c89395",
+    "choicePopupLifecycle.js": "62e7f2a4f2185f285dec9a3af7d404dcd9ae50f76547df223b09814e3d59a342",
+    "choiceController.js": "6e5f3a7964899b44eeff8fd2488686fb895a7e59cb4145650a8239afbc251809",
+    "nativeSelectCommit.js": "5abe12f30f5c9209add3261dd38d01416adc22bcf5c3b5d931f2f1715760bda7",
+    "typeaheadFill.js": "742c1ccff4ed654886992cb81f3af613b1cc3831b310eef34aadcb1a8ecd34ed",
+    "genericAriaChoice.js": "eda5b785d578d3bab525ea8704a7b91fcd15ee890da289bfac43436d164a3997",
+    "formEffectSettlement.js": "80152b3dca8b82afb5ad4389fffbdc145a814da57cf3ea3106e88085660ce688",
+    "resumeLifecycle.js": "aa70f445ac2fdf7fbac0f7a112be8c768150521a2c44b3346da6420589e95cd1",
+    "platforms/workday.js": "2df09ad78c8544ca4d13dd8cfbd63eb2e42910c76197091efc4208a4d4c94246",
+    "workdayPromptAdapter.js": "443df73930a36083d193b8a600b8cbec5446ff70db509aaa1abbc9047328e0cb",
+    "requirednessResolver.js": "a0db2b8ef2601fe133e3f6d55df77093a6f02a9e3d171d6b13bf1850d6a012d5",
+    "datePartComposite.js": "b82bf3a0a37f0644e8a2710b5409eee725be93c7bfb9a753b5b0037d9a256994"
+  },
+  "scope": "Selected browser form components; no vendor background, bundle, account, AI, tracking, email or submission controllers.",
+  "extractions": {
+    "datePartComposite.js": {
+      "source": "js/bundle.js",
+      "source_sha256": "0d7082e07e3a389a1777ae4d6d1fcee177dba5c95484f8c54129faf4bc4c5d43",
+      "character_start": 2692634,
+      "character_end": 2698362,
+      "wrapper": "Leading ! and trailing semicolon to form a standalone IIFE; component body unchanged."
+    }
+  },
+  "engine": "jobwizard-1.1.55/jobs-5",
+  "reuse": "Pinned browser components only. Local answers, files and visual checks for existing jobs tabs."
+}

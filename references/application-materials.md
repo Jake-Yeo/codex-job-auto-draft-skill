@@ -6,7 +6,9 @@ Use the supported browser computer-use controls directly in the existing jobs ta
 
 ## Replacing existing field text
 
-Use the native tab's `setValue` to replace existing text when supported. Pasting after a field receives focus can append to its existing value, so preserve the selection when using paste and verify the result before continuing. Use a focused screenshot to check the exact value when the accessibility view redacts it.
+Use Path 2’s `fill_input(selector, text, clear_first=True)` to replace existing text when supported. Pasting after a field receives focus can append to its existing value, so preserve the selection when using paste and verify the result before continuing. Use a focused screenshot to check the exact value when the accessibility view redacts it.
+
+On a Workday skills search, if clearing leaves the previous query in place, focus the search input, move to the end, and use Backspace until the input is empty. Verify the empty value before typing the next query. Let the search results settle, select the matching checkbox, and verify the resulting skill chip before continuing.
 
 ## Resume and required uploads
 
@@ -16,15 +18,15 @@ Reinspect the employer form after selection. The filename and the settled attach
 
 An upload timeout is a reason to inspect the form and repair the interaction. Check whether parsing is still running, the file already appears, or the site reports a type or size error. Confirm the original file exists and the control is for the intended document. Upload the résumé before filling fields when parsing can replace profile values.
 
-Follow the [upload order in the skill](../SKILL.md#fill-check-finish). On Ashby, attach the PDF in the required **Resume** field. **Autofill from resume** is a separate control. When using the browser chooser, follow the browser tool’s `file-uploads` guidance. Start `waitForEvent('filechooser')` before clicking the visible Attach or Choose file button and call the chooser’s `setFiles` with the exact absolute path.
+Follow the [upload order in the skill](../SKILL.md#fill-check-finish). On Ashby, attach the PDF in the required **Resume** field. **Autofill from resume** is a separate control. For the Path 2 file-picker fallback, locate the observed file input and call `upload_file(selector, absolute_path)` on the verified employer tab. If the input is in a frame or shadow tree, resolve that input’s node in the correct CDP session and call `cdp("DOM.setFileInputFiles", session_id=frame_session, files=[absolute_path], backendNodeId=input_node)`. If approval remains pending or the input rejects the file, preserve the attachment blocker and continue accessible fields.
 
-When using the file picker, click the visible **Choose file** label if the file input is hidden, as on Workable. In an embedded iCIMS form, if the **My Computer** button does not bring up the chooser, locate the observed file input inside its iframe, arm `waitForEvent('filechooser')`, and press Space on the input. Verify the attached filename after parsing.
+When using the file picker, use the visible **Choose file** label to identify its associated input if the input is hidden, as on Workable. In an embedded iCIMS form, if the **My Computer** button does not bring up the chooser, locate the observed file input inside its iframe and set the file through CDP in that frame. Verify the attached filename after parsing.
 
 On Fitzii, **View Job Posting** opens a modal over the current form. Close it before attaching files. If you need the file picker, use the visible résumé or cover-letter drop area after closing the modal. Verify each filename in its own box. Check for short-answer fields revealed by skill ratings. If a custom Fitzii radio button or checkbox ignores its accessibility click, click the visible circle in a fresh screenshot and verify the selected state.
 
 For embedded Greenhouse forms, leave the employer page open and target the observed iframe through the attachment extension. Check the settled filename in that frame before trying another upload.
 
-Keep embedded uploads in the original browser tab. Opening an application iframe URL directly can lose the draft context. If the native app view shows an unrelated foreground window instead of the expected picker, return to browser-scoped controls on the original tab.
+Keep embedded uploads in the original browser tab. Opening an application iframe URL directly can lose the draft context. Use browser-scoped controls on the original tab.
 
 If the browser tool loses its connection, recover the original tab by ID as described in [tab recovery](tab-workflow.md).
 

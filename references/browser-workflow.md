@@ -7,6 +7,7 @@ Use supported browser computer-use controls on the single current jobs tab. Insp
 - Before advancing, inspect required and applicable optional fields, dependent questions, and form validation. Fill fields using the applicant's saved facts and materials. Check the saved choices, attachments, consent boxes, and name and date fields on Review or on the last page where each control is visible.
 - Use the applicable approval for that exact action without asking twice. For a combined checkbox, account for each consent it gives. Leave final Apply for the applicant.
 - Use the applicant's standing consent to complete ordinary acknowledgments and factual certifications. Fill authorized typed signatures with the applicant’s verified signature name and use the date and format requested by the form. Read enough of the control's label and surrounding text to distinguish a routine acknowledgment from accepting an agreement, signing a waiver, or granting access to sensitive records. When the tool requires confirmation at the time, handle the exact remaining control with the existing `await-confirmation` workflow and continue with accessible work.
+- Inspect any **I am not a robot** or **I am human** control in context. An ordinary applicant acknowledgment can be completed as a form field. If verification remains, finish the other fields, save if possible, and keep the exact draft open with that control identified in the handoff.
 
 ## Portal troubleshooting
 

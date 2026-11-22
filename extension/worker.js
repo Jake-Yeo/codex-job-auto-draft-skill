@@ -48,7 +48,9 @@ async function attachDocuments({tab_id,expected_url,frame_url,documents}) {
         func:expected=>(location.origin+location.pathname===expected?location.href:null),
         args:[frame_url||clean(expected_url)],
       });
-      const matches=frames.filter(({result})=>result && !forbidden(result));
+      const matchingFrames=frames.filter(({result})=>result && !forbidden(result));
+      const embedded=frame_url ? matchingFrames.filter(frame=>frame.frameId!==0) : [];
+      const matches=embedded.length ? embedded : matchingFrames;
       if(matches.length!==1 || !matches[0].documentId) {
         throw Error('One matching application frame was not found');
       }
