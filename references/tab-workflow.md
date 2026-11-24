@@ -14,6 +14,12 @@ Keep the user's work window and global keyboard/mouse alone. Use browser-scoped 
 
 After a detached session, missed click or timeout, inspect the form for any result from the interrupted action. Recover control of the same tab and use the documented repair. Fill and save all accessible sections before preserving an unresolved draft. If a file is missing, try the applicable [attachment procedure](application-materials.md#resume-and-required-uploads), finish other fields, and verify any files already accepted. Defer only the remaining blocker and go on to the next jobs tab. Return to the deferred tab for an available retry after the first pass.
 
+## Preserve unsaved changes
+
+Verify existing attachments from the filenames and statuses on the form. Use a saved local copy to inspect or preserve a document. A portal control labeled **Download** or **Preview** can navigate away from an unsaved draft. If a portal download is necessary, verify a non-final save first and use a control that keeps the original draft open.
+
+Avoid actions that can open Chrome’s **Leave site?** or **Changes you made may not be saved** dialog. If one appears unexpectedly, choose **Stay** or **Cancel** and verify the current draft before continuing.
+
 ## Recover an embedded form before deferring
 
 - After a transient input or connection error, check the original tab and rebind it if the handle is stale. Use the step and saved values the form shows now. The recovery marker is a checkpoint, and a wizard can return to an earlier step while retaining some answers. Confirm whether the résumé is present before retrying an attachment.
