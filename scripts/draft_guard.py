@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from urllib.parse import urlsplit, urlunsplit
@@ -11,6 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 from applicant_profile import ProfileStore, default_dir, write_private
 
 DEFAULT = default_dir() / 'active-draft.json'
+ICIMS_JOB_PATH = re.compile(r'/jobs/([0-9]+)(?:/[^/]+)?/(?:job|candidate|questions|eeo)/?')
 
 
 def clean_url(url):
@@ -18,6 +20,23 @@ def clean_url(url):
     if parts.scheme not in ('http', 'https') or not parts.hostname or parts.username or parts.password:
         raise ValueError('Use the observed public application URL without credentials.')
     return urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
+
+
+def draft_url(url):
+    parts = urlsplit(clean_url(url))
+    path = parts.path
+    if parts.hostname.endswith('.myworkdayjobs.com'):
+        path = re.sub(r'/apply/(?:applyManually|autofillWithResume)/?$', '/apply', path)
+    if parts.hostname == 'icims.com' or parts.hostname.endswith('.icims.com'):
+        job = ICIMS_JOB_PATH.fullmatch(path)
+        if job:
+            path = f'/jobs/{job[1]}'
+    return urlunsplit(parts._replace(path=path))
+
+
+def matches_draft(draft, tab_id, url=None):
+    return bool(draft and draft['tab_id'] == tab_id
+                and (url is None or draft_url(draft['url']) == draft_url(url)))
 
 
 def load_state(path):
@@ -68,11 +87,14 @@ def main():
     defer.add_argument('--next', required=True)
     resume = commands.add_parser('resume', help='Resume a preserved draft on its original tab.')
     resume.add_argument('--tab-id', required=True)
+    resume.add_argument('--url', help='Observed URL of this application')
     rebind = commands.add_parser('rebind')
     rebind.add_argument('--tab-id', required=True)
     rebind.add_argument('--new-tab-id', required=True)
+    rebind.add_argument('--url', help='Observed URL of the same application on the replacement tab')
     finish = commands.add_parser('finish')
     finish.add_argument('--tab-id', required=True)
+    finish.add_argument('--url', help='URL of the reviewed application or its saved marker if closed')
     finish.add_argument('--verified', action='store_true', required=True,
                         help='Agent verified final review or confirmed the tab closed or was submitted.')
     args = parser.parse_args()
@@ -80,16 +102,17 @@ def main():
         state = load_state(args.state)
         active = state['active']
         preserved = (state['pending_confirmations'], state['deferred'])
-        if args.action != 'status':
-            saved = next(
-                ((group, item) for group in preserved for item in group
-                 if item['tab_id'] == args.tab_id),
-                None,
-            )
+        if args.action in ('start', 'resume', 'finish'):
+            active_matches = matches_draft(active, args.tab_id, args.url)
+            matches = [(group, item) for group in preserved for item in group
+                       if matches_draft(item, args.tab_id, args.url)]
+            if int(active_matches) + len(matches) > 1:
+                raise ValueError('More than one draft matches this tab. Pass the application URL.')
+            saved = matches[0] if matches else None
         if args.action == 'status':
             result = state
         elif args.action == 'start':
-            if active and active['tab_id'] != args.tab_id:
+            if active and not active_matches:
                 raise ValueError('Another draft is active; finish or recover it before starting a new one.')
             if saved:
                 raise ValueError('This draft is preserved; use resume on the existing tab.')
@@ -101,7 +124,7 @@ def main():
                 save_state(args.state, state)
             result = {'active': active}
         elif args.action == 'resume':
-            if active and active['tab_id'] != args.tab_id:
+            if active and not active_matches:
                 raise ValueError('Another draft is active; finish or preserve it before resuming a draft.')
             if not active:
                 if not saved:
@@ -113,7 +136,7 @@ def main():
                 state['active'] = active
                 save_state(args.state, state)
             result = {'active': active}
-        elif args.action == 'finish' and not (active and active['tab_id'] == args.tab_id):
+        elif args.action == 'finish' and not active_matches:
             if not saved:
                 raise ValueError('The tab does not match an active or preserved draft.')
             group, draft = saved
@@ -140,9 +163,14 @@ def main():
                 save_state(args.state, state)
                 result = {'active': None, key: state[key]}
             elif args.action == 'rebind':
-                if any(item['tab_id'] == args.new_tab_id for group in preserved for item in group):
-                    raise ValueError('The replacement tab already has a preserved draft.')
+                if args.url and not matches_draft(active, args.tab_id, args.url):
+                    raise ValueError('The replacement tab URL is for a different application.')
+                if any(matches_draft(item, args.new_tab_id, active['url'])
+                       for group in preserved for item in group):
+                    raise ValueError('The replacement tab already has a marker for this application.')
                 active['tab_id'] = args.new_tab_id
+                if args.url:
+                    active['url'] = clean_url(args.url)
                 active['updated_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
                 save_state(args.state, state)
                 result = {'active': active}

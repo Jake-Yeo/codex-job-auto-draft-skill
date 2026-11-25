@@ -11,10 +11,10 @@ import re
 import secrets
 import shutil
 import threading
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 from applicant_profile import ProfileError, ProfileStore, read_json, write_private
-from draft_guard import clean_url, load_state
+from draft_guard import clean_url, draft_url, load_state
 
 
 EXTENSION_SOURCE = Path(__file__).resolve().parents[1] / "extension"
@@ -63,15 +63,6 @@ def bridges(store, project):
         config = read_json(config_path)
         if existing is None or config["port"] != existing["port"] or config["token"] != existing["token"]:
             yield {**config, "extension_directory": str(store.directory / "attachment-extension")}
-
-
-def draft_url(url):
-    parts = urlsplit(clean_url(url))
-    # Workday's apply, manual entry, and resume autofill URLs share one draft.
-    if parts.hostname.endswith(".myworkdayjobs.com"):
-        path = re.sub(r"/apply/(?:applyManually|autofillWithResume)/?$", "/apply", parts.path)
-        return urlunsplit(parts._replace(path=path))
-    return parts.geturl()
 
 
 def build_extension(store, requested_port):

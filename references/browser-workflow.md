@@ -41,8 +41,16 @@ Use the steps that match the controls and errors on the current form. Record new
 
 ### iCIMS
 
-- Distinguish email-only account lookup from an accessible application profile. For searchable dropdowns, typing can trigger options when paste does not. Verify the exact committed selection.
-- Verify and save earlier sections as you fill them. If the last question page offers **Next** without making clear that it opens a review page, leave that control for the applicant because it can submit the application.
+- Distinguish an email-only account lookup from a mixed candidate profile. On the mixed profile, fill contact details, work authorization, source fields, and documents while the applicant handles the credential fields. A login message, password field, or old marker does not make the other fields inaccessible.
+- Scope input to the actual iCIMS form frame. Search custom dropdowns by typing the exact label and let the results settle. Select the matching option and check both the displayed label and the committed selection. Set the parent field first when it supplies options for a dependent field.
+- Before you defer an authentication error, inspect the current page of the actual requisition. If the signed-in session is accessible, use the employer dashboard’s **Continue Application** for that requisition and verify which answers persisted. After the applicant signs in, resume the current step even if the earlier navigation failed. Check the exact employer status before filling a stale duplicate.
+- Save accessible answers and continue through the named intermediate steps. Use the existing notes and applicable fallback for screening questions. Do the remaining work without waiting for an optional reply. Keep any genuinely unanswered required field distinct from a saved answer.
+- On the last questions step, **Save & Finish Later** saves without filing the application. Verify the save receipt and compare the returned answers. Treat **Submit & Continue** on the last step as the applicant’s submission control unless the portal clearly shows a later review step. If documents are no longer on that page, follow [saved profile verification and repair](application-materials.md#verify-icims-documents-on-later-steps).
+
+### Eightfold
+
+- After selecting the résumé, inspect the page for a **Data Privacy Agreement** or other portal dialog before retrying the picker. Read what the agreement covers and apply the existing consent instructions. Once it is handled, let scanning finish and verify the named upload and the success message.
+- Scope custom dropdown options to the listbox linked by the field’s `aria-controls`. After committing country or referral source, fill any newly required state, source detail, and notes fields, then recheck the completed form.
 
 ### Other portals
 

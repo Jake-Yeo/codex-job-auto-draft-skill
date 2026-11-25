@@ -16,7 +16,7 @@ Select the applicant's approved documents from the private `documents` module an
 
 Reinspect the employer form after selection. The filename and the settled attachment state, such as an enabled Remove or Replace control, confirm the upload. A chooser accepting the path, an upload-in-progress label, or a local copy is insufficient. Repeat the attachment check on the final review page and retain the exact generated files for the final chat handoff.
 
-An upload timeout is a reason to inspect the form and repair the interaction. Check whether parsing is still running, the file already appears, or the site reports a type or size error. Confirm the original file exists and the control is for the intended document. Upload the résumé before filling fields when parsing can replace profile values.
+An upload timeout is a reason to inspect the form and repair the interaction. Check whether parsing is still running, the file already appears, or the site reports a type or size error. Look for a portal consent or privacy dialog triggered by the file picker. Confirm the original file exists and the control is for the intended document. Upload the résumé before filling fields when parsing can replace profile values.
 
 Follow the [upload order in the skill](../SKILL.md#fill-check-finish). On Ashby, attach the PDF in the required **Resume** field. **Autofill from resume** is a separate control. For the Path 2 file-picker fallback, locate the observed file input and call `upload_file(selector, absolute_path)` on the verified employer tab. If the input is in a frame or shadow tree, resolve that input’s node in the correct CDP session and call `cdp("DOM.setFileInputFiles", session_id=frame_session, files=[absolute_path], backendNodeId=input_node)`. If approval remains pending or the input rejects the file, preserve the attachment blocker and continue accessible fields.
 
@@ -29,6 +29,28 @@ For embedded Greenhouse forms, leave the employer page open and target the obser
 Keep embedded uploads in the original browser tab. Opening an application iframe URL directly can lose the draft context. Use browser-scoped controls on the original tab.
 
 If the browser tool loses its connection, recover the original tab by ID as described in [tab recovery](tab-workflow.md).
+
+### Verify iCIMS documents on later steps
+
+On iCIMS, use the résumé field first because choosing a file can trigger parsing and reload the profile. Let it settle before filling other answers or selecting the cover letter. Reinspect the actual requisition, which documents survived, and which fields need filling. If parsing returns to the welcome page, recover the same job through the portal’s visible controls. Finish the accessible fields and retry the missing résumé once the profile is available.
+
+Later questions may hide the upload fields. Verify and save the job-specific answers first. From the signed-in job tab, read the employer’s **Dashboard** and **Update your profile/resume** links in the same session. This is the employer’s own portal. The Path 2 helper checks the exact requisition’s status and compares the saved files in the shared profile without leaving or reloading the draft. Use the local, approved PDFs for comparison. The portal may rename the résumé after parsing.
+
+~~~python
+# Run inside the Browser Use Path 2 CLI with <skill-directory>/scripts on sys.path.
+from browser_use_cli_icims import inspect_draft
+
+session_id = switch_tab("OBSERVED_TARGET_ID", activate=False)
+print(inspect_draft(
+    cdp, session_id, "OBSERVED_ICIMS_REQUISITION_URL",
+    resume="/absolute/path/to/approved-resume.pdf",
+    cover_letter="/absolute/path/to/this-role-cover-letter.pdf",
+))
+~~~
+
+If the draft is incomplete and the profile holds the wrong cover letter, use its observed **Update your profile/resume** form after the job answers are saved. Keep it in the original tab. If leaving the saved application would open a Chrome prompt, use the observed same-origin profile link in a temporary frame inside that tab so the application stays in place. In that profile form, replace the file in the observed **Cover Letter** field, verify the newly selected filename, and use **Update Profile** to save it. The original résumé can remain when it matches. Try the PDF extension first with the current job URL and observed profile frame path, then use the frame-scoped file input if needed. After the employer confirms the update, remove the temporary frame if used and recheck the original job and the saved PDFs.
+
+Prefer an application-specific cover-letter field whenever offered. If several drafts really share one profile slot, save the answers for every role and keep each tailored PDF. Use the slot for the requested role or the next draft the applicant will submit. Report which letter is in the slot and which other drafts depend on it. A match in the current profile establishes what the profile holds. A receipt for an earlier submission does not establish which file that submission received.
 
 ### Replace application documents
 
@@ -47,7 +69,7 @@ python3 /path/to/job-applications/scripts/attach_documents.py upload \
   --cover-letter-field 'Cover Letter' --cover-letter '/path/to/approved.pdf'
 ~~~
 
-Omit the flags for any document you do not need to attach. The résumé comes from the private profile. A generated letter lives in the private `materials` folder, and an applicant-approved existing one can be saved as `documents.cover_letter`. Use the exact observed labels so the uploader can distinguish both fields. If one upload is blocked, keep filling and use the browser file picker for that PDF if permitted. Use the browser file picker for non-PDFs. Verify actual attachment results on the form before proceeding or retrying.
+Omit the flags for any document you do not need to attach. The résumé comes from the private profile. A generated letter lives in the private `materials` folder, and an applicant-approved existing one can be saved as `documents.cover_letter`. Use the exact observed labels so the uploader can distinguish both fields. If one upload is blocked, keep filling and use the browser file picker for that PDF if permitted. Use the browser file picker for non-PDFs. Verify actual attachment results on the form before proceeding or retrying. The bridge normally waits for the extension’s polling interval of up to 30 seconds. Use the helper’s normal connection window instead of a timed five-second probe. If the real attempt finds no connected upload extension, use the scoped file picker in the current Chrome session and keep filling. An inventory connection alone does not verify the PDF bridge.
 
 ## Education and experience
 

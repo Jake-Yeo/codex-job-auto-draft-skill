@@ -2,13 +2,21 @@
 
 The user supplies the application tabs in a Chrome group named **jobs**. Discover actual group names, window IDs and tab IDs. Match the name case-insensitively. Keep every tab in its existing group and window. There is no Working, Ready, Pending help, Saved drafts or AutoApply group workflow and no database synchronization.
 
-Work on one existing jobs tab at a time. Use the supported browser inventory to find its exact tab and window. Use the draft guard to resume after interruptions. Record unanswered mandatory confirmations with `await-confirmation` and other unresolved tab-specific blockers with `defer` so the next tab can proceed. Do not move or regroup tabs. Re-query live tabs if a tab disappears. When healthy Chrome inventory confirms a tab closed, record it as closed. Report it as submitted only when the applicant confirms submission. Preserve the marker during a connection problem or when the tab is still open outside the group.
+Work on one existing jobs tab at a time. Keep the group and window in place. Preserve and defer only the control that remains inaccessible after recovery, then continue with the next live draft. A Chrome connection error or omission from the Jobs list is not evidence of closure.
 
 Recovery must preserve the employer draft. Do not reload, navigate to its current URL, restart Apply, clear cookies or create a replacement tab. Inspect the current form and fix the affected control. An interrupted command may already have changed the page: inspect its result and current values before deciding whether anything remains to do.
 
 A login title, URL or stale gate flag does not establish a current account blocker. Inspect the exact form, especially after the applicant says he signed in. Fill accessible non-credential application fields while leaving credentials untouched; hand off only the actual remaining authentication action.
 
 Workday can show a generic `VPS|…` save error while displaying the account email and populated form. If no field is identified as invalid, preserve the answers and check whether the session needs renewal. After the applicant signs in, resume the same draft and check which fields and attachments persisted before re-entering anything. If navigating Back opens a **Discard Application** dialog, cancel it.
+
+## Match the application before resuming
+
+Use fresh inventory to find the numeric tab ID and target, then inspect the live form in that target’s own DevTools session. Confirm the employer and requisition in the page or its application frame. Titles, old markers, URLs from a prior call and completed lookalike tabs can all be stale. If the applicant points out a specific tab, that live tab is the one to fill and verify. With duplicate tabs, confirm the saved state of the remaining supplied tab before calling it done. Do not create another application for the same requisition.
+
+Use `draft_guard.py resume --tab-id TAB_ID --url LIVE_URL` when the marker matches this application. The iCIMS posting, candidate profile, EEO and questions URLs for one employer and requisition match the same marker. If the live tab now displays another requisition, preserve the old marker with `defer` if it is active, then use `start` for the application that is actually open. Preserved markers for different requisitions can share a tab ID. If the applicant reopened the original requisition on a new tab, resume its marker by the old ID and verified requisition URL, then use `rebind --tab-id OLD --new-tab-id NEW --url LIVE_URL`. Use the current matching application URL with `finish --verified`.
+
+A saved draft, an employer receipt and a closed tab are different outcomes. Check a submitted status against the exact requisition before trusting a stale form. Only use an absent ID in healthy `openTabIds` from the original profile as evidence of closure. Use a receipt or the applicant’s report as evidence of submission.
 
 ## Draft order
 
@@ -40,7 +48,7 @@ Avoid actions that can open Chrome’s **Leave site?** or **Changes you made may
 
 Use the [Path 2 CLI](https://github.com/browser-use/browser-use#path-2-cli) with the already-running local Chrome profile that holds the supplied applications. Enable local remote debugging at `chrome://inspect/#remote-debugging`. Reuse the File Upload Helper when it is already loaded in that profile, or load the AutoApply Path 2 Tab Inventory extension using the [setup guide](setup.html). The inventory script attaches briefly to a loaded extension context to read existing groups, tabs, window states, and DevTools target IDs. It does not create or close Chrome targets.
 
-Run `browser-use --doctor` during setup. If the CLI is missing and `uv` is available, use `uvx --python 3.12 --from browser-use==1.0.8 browser-use` in place of `browser-use`. Use the default local daemon throughout the batch so the CLI attaches to existing tabs. If the inventory worker is temporarily idle, retry discovery against the same running profile. Keep the current Chrome window in place when handling a connection or remote-debugging prompt.
+Run `browser-use --doctor` during setup. If the CLI is missing and `uv` is available, use `uvx --python 3.12 --from browser-use==1.0.8 browser-use` in place of `browser-use`. If the package is already cached and the network fails, use `uvx --offline --python 3.12 --from browser-use==1.0.8 browser-use` and continue with the current Chrome profile. Use the default local daemon throughout the batch. If the inventory worker is temporarily idle, retry discovery against the same running profile. Keep the current Chrome window in place when handling a connection or remote-debugging prompt.
 
 ```sh
 BU_NAME=default BH_TAB_MARKER=0 BH_DEBUG_CLICKS= browser-use < "<skill-directory>/scripts/browser_use_cli_tabs.py"
@@ -50,8 +58,9 @@ Replace `<skill-directory>` with the actual skill directory. Match the `group` f
 
 ```sh
 BU_NAME=default BH_TAB_MARKER=0 BH_DEBUG_CLICKS= browser-use <<'PY'
-switch_tab("OBSERVED_TARGET_ID", activate=False)
-print(page_info())
+session_id = switch_tab("OBSERVED_TARGET_ID", activate=False)
+print(cdp("Runtime.evaluate", session_id=session_id, expression="location.pathname",
+          returnByValue=True)["result"]["value"])
 PY
 ```
 
@@ -70,4 +79,4 @@ PY
 
 If background capture stalls, use the DOM or accessibility tree and the observed field's controls. If a control still needs the foreground after a same-tab retry, save the accessible work and defer that control without changing the active tab. Try the attachment extension first for PDFs, then use the [tab-scoped file input](application-materials.md#resume-and-required-uploads) for fallback without opening a native file dialog.
 
-For recovery, rerun the tab inventory and match the original numeric tab ID, group, and application before reattaching to its current target ID. Only use an absent ID in `openTabIds` as evidence of closure after confirming the inventory is healthy and from the original Chrome profile. Keep the original employer page open throughout recovery.
+For recovery, rerun the tab inventory and match the original numeric tab ID, group, and application before reattaching to its current target ID. Only use an absent ID in `openTabIds` as evidence of closure after confirming the inventory is healthy and from the original Chrome profile. Keep the original job tab throughout recovery. Once the portal confirms a save, use its observed draft, profile, or document controls to repair the saved application on that tab. For a read-only check, use a same-origin read of the observed link instead of leaving the form.
