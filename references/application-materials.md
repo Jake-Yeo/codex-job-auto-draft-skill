@@ -53,6 +53,8 @@ Omit the flags for any document you do not need to attach. The résumé comes fr
 
 Use the saved education and work entries. Preserve supported dates, title, organization and location. Use office addresses only for employer fields, separately from the applicant's own address. If an expected graduation date is in the future and the widget refuses it, leave the end date open where possible and use a supported description or screening answer for the expected date.
 
+Fill the major or **Field of Study** from `education.field_of_study` whenever the portal offers it. Try the exact major first. Use a catalog equivalent only after checking the settled options. On Workday, verify the committed field of study separately from the school and degree before advancing and on Review.
+
 For Workday month/year steppers, focus and enter each segment with the supported keyboard controls, then move focus away to commit it. A painted value is not proof the containing date was saved. Check for date validation errors and confirm Save and Continue advances. Do not use ordinary paste/fill calls for these segmented controls; they can produce invalid months or years. Use the visible calendar if needed, then inspect again.
 
 Workday can display a filled **Role Description** and save it as **No Response** if the input never loses focus. Enter the description and move focus away from the editor before advancing. Verify both entries on Review. If a description is missing, use the wizard's observed Back controls to repair it in the same draft.
@@ -78,6 +80,18 @@ For long searchable Greenhouse dropdowns, type the exact choice to reduce the me
 For iCIMS custom dropdowns where a click misses, focus the combobox and press Enter to open it. If it has a search box, type the exact choice with `typeText` or `pressSequentially`. Use Down to highlight the verified result, then Enter and check the collapsed value. Wait for a dependent dropdown to update after its parent changes. Ordinary text fields can still use paste or fill.
 
 For SAP SuccessFactors UI5 dropdowns, typing can leave a search value without committing a selection. Open the menu, inspect the settled screenshot, select the visible option, and verify the collapsed value. Follow the [portal save steps](browser-workflow.md#sap-successfactors) to verify it persisted.
+
+## Languages
+
+ Add a row when the portal offers **Languages → Add** and the applicant has a supported entry. Keep correct imported rows. Select the language and complete each applicable fluency, speaking, reading, and writing control revealed by that selection. Use the closest supported proficiency option and verify the saved record on Review or on the last page that shows it. Add all languages user speaks as fluent (or it's equivalent leve), obviously english is always going to be fluent for the user.
+
+The optional `languages` profile module can hold a `languages` list of records containing `language` and `proficiency`. Use separate speaking, reading, or writing values when supplied. Choose the language and level from applicant-specific evidence.
+
+## Websites and profile links
+
+Use the applicant's saved portfolio or website, GitHub, and LinkedIn URLs from `contact` or `contact.links`. If the portal offers repeatable **Websites** or **Professional Links** rows, add one row per distinct saved URL, including GitHub and LinkedIn when the portal also offers dedicated fields for them. Preserve existing correct entries and skip duplicate URLs within the list, treating a trailing slash as equivalent.
+
+Use the dedicated LinkedIn and GitHub fields when offered. If only one generic website field is available, use the saved portfolio or website there. On Workday, verify that each **Add** or **Add Another** action opened a new URL row before entering it. Commit each value, save the section, and verify all saved URLs on Review or on the last page that shows them.
 
 ## Cover letters
 

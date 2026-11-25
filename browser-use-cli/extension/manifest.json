@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "AutoApply Path 2 Tab Inventory",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Match Chrome jobs-group tabs to Browser Use CLI targets.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxt52/SlMA4MELD0zdCiTHD8M5lOD50SH2NuHz2QOfYiuJ3bo5fINvxjNR/P9ThAIPoqPSdEsoYcy22cA30N0MMQkskxsn1WOOAZpygyuNwYfS8xk5vIaPYUF7ZmbMiCVxzbOWr3PYGcCpbuH+OX6R23W8EeTu0PrxttVJ193y+oR5x1OAOUEp78Yhw3GYXDHc8tZ33TuNLQTXnc+xFq7BnCi+/Fltn3DZM4kUMBdeRfeiQ4sF13mpc2YaaQwszqNqkmw6qIyOtuEtjY8mML8dT4xnuGAhgeOUgcAsPVKd52JYQgwC17eAstKnSC3Oz2jsOqNS1qG9VcZcY9zF3ze3wIDAQAB",
-  "permissions": ["tabs", "tabGroups", "debugger"]
+  "permissions": ["tabs", "tabGroups", "debugger", "alarms"],
+  "background": { "service_worker": "inventory-worker.js" }
 }

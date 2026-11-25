@@ -413,11 +413,12 @@
               <pre><code>uv tool install --python 3.12 browser-use==1.0.8
 browser-use --doctor</code></pre>
               <p>In the Chrome profile containing your application tabs, enable remote debugging at
-                <code>chrome://inspect/#remote-debugging</code>. In <code>chrome://extensions</code>, enable
-                <strong>Developer mode</strong>, choose <strong>Load unpacked</strong>, and select
+                <code>chrome://inspect/#remote-debugging</code>. If that profile already has the
+                <strong>File Upload Helper</strong> from AutoApply, it can also provide tab inventory.
+                Otherwise enable <strong>Developer mode</strong> at <code>chrome://extensions</code> and load
                 <code>~/.codex/skills/portable-job-applications-browser-use-cli/browser-use-cli/extension</code>.
-                Chrome's debugger permission lets the inventory extension match Chrome tab IDs to the CLI's target IDs.
-                Use the same profile for the upload extension and your application tabs.</p>
+                Use <strong>Reload</strong> on an older copy of the inventory extension to enable its background worker.
+                Discovery reads tabs from the existing extension without opening a Chrome tab.</p>
             </div>
           </li>
           <li>
