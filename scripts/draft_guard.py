@@ -2,6 +2,8 @@
 """Keep one active draft and preserve unresolved drafts for later recovery."""
 
 import argparse
+from contextlib import contextmanager
+from copy import deepcopy
 import json
 import re
 from pathlib import Path
@@ -62,6 +64,20 @@ def save_state(path, state):
         write_private(path, json.dumps({'version': 3, **state}, ensure_ascii=False, indent=2) + '\n')
 
 
+@contextmanager
+def edit_active_draft(path, tab_id, url):
+    with ProfileStore(path.parent).locked():
+        state = load_state(path)
+        active = state['active']
+        if not matches_draft(active, str(tab_id), url):
+            raise ValueError('The tab and URL must match the active draft.')
+        original = deepcopy(active)
+        yield active
+        if active != original:
+            active['updated_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            save_state(path, state)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--state', type=Path, default=DEFAULT,
@@ -77,6 +93,11 @@ def main():
     note = commands.add_parser('note')
     note.add_argument('--tab-id', required=True)
     note.add_argument('--next', required=True)
+    save_flags = note.add_mutually_exclusive_group()
+    save_flags.add_argument('--waiting-for-save', action='store_true',
+                            help='Keep the draft active while an observed save is pending.')
+    save_flags.add_argument('--save-settled', action='store_true',
+                            help='Clear a save marker after observing its result on this draft.')
     pending = commands.add_parser('await-confirmation',
                                   help='Preserve an active draft waiting for a required confirmation.')
     pending.add_argument('--tab-id', required=True)
@@ -146,7 +167,13 @@ def main():
         else:
             if not active or active['tab_id'] != args.tab_id:
                 raise ValueError('The tab does not match the active draft; do not switch applications.')
+            if 'save' in active and args.action in ('defer', 'await-confirmation', 'finish'):
+                raise ValueError('A save is pending on this draft. Check its result on the same tab.')
             if args.action == 'note':
+                if args.waiting_for_save:
+                    active.setdefault('save', {})
+                elif args.save_settled:
+                    active.pop('save', None)
                 active['next'] = args.next
                 active['updated_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
                 save_state(args.state, state)

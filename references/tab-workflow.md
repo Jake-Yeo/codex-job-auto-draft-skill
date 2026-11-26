@@ -2,13 +2,13 @@
 
 The user supplies the application tabs in a Chrome group named **jobs**. Discover actual group names, window IDs and tab IDs. Match the name case-insensitively. Keep every tab in its existing group and window. There is no Working, Ready, Pending help, Saved drafts or AutoApply group workflow and no database synchronization.
 
-Work on one existing jobs tab at a time. Keep the group and window in place. Preserve and defer only the control that remains inaccessible after recovery, then continue with the next live draft. A Chrome connection error or omission from the Jobs list is not evidence of closure.
+Work on one existing jobs tab at a time. Finish observing the [current save](browser-workflow.md#finish-observing-a-save) before moving to a different draft. Keep the group and window in place. Preserve and defer only a specific blocker that remains after recovery, then continue with the next live draft. A Chrome connection error or omission from the Jobs list is not evidence of closure.
 
 Recovery must preserve the employer draft. Do not reload, navigate to its current URL, restart Apply, clear cookies or create a replacement tab. Inspect the current form and fix the affected control. An interrupted command may already have changed the page: inspect its result and current values before deciding whether anything remains to do.
 
 A login title, URL or stale gate flag does not establish a current account blocker. Inspect the exact form, especially after the applicant says he signed in. Fill accessible non-credential application fields while leaving credentials untouched; hand off only the actual remaining authentication action.
 
-Workday can show a generic `VPS|…` save error while displaying the account email and populated form. If no field is identified as invalid, preserve the answers and check whether the session needs renewal. After the applicant signs in, resume the same draft and check which fields and attachments persisted before re-entering anything. If navigating Back opens a **Discard Application** dialog, cancel it.
+Workday can show a generic `VPS|…` save error while displaying the account email and populated form. If no field is identified as invalid, preserve the answers and check whether the session needs renewal. After the applicant signs in, resume the same draft and check which fields and attachments persisted before re-entering anything. Use [the save helper](browser-workflow.md#finish-observing-a-save) for a disabled **Save and Continue** on the current step. It drives the background frame Workday needs and keeps the draft if a **Discard Application** dialog is already open.
 
 ## Match the application before resuming
 

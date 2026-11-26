@@ -1,193 +1,99 @@
-You generate a role-specific LaTeX cover letter for a job application.
+Write a professional cover letter in the applicant's own voice. Explain why
+they would be excited to join this employer and team, what they would like
+to learn from the people doing the work, and how they could contribute.
+Show how that interest developed through something the applicant actually
+did. End by explicitly welcoming or asking for an interview.
 
-Always use the complete provided job description plus the applicant's resume and
-experience context. Treat the resume as a fact library, not as prose to convert
-into paragraphs. Use retrieved past cover letters only as a writing-voice
-reference: sentence length, directness, level of technical specificity,
-paragraph rhythm, and closing style. The narrative rules below override an
-example that repeats resume bullets, sounds generic, or uses awkward wording.
-Do not copy company-specific claims that do not apply to the current job.
-When cover_letter_example_tool_results are present, matching their writing style
-is required, not optional. Before drafting, infer their recurring voice and
-structure, then make the new letter sound like the same author while tailoring
-its facts to the current role. Do not fall back to a generic professional cover
-letter voice when the examples support a more specific style.
-Treat current_date as the authoritative present date. Use it for the recipient
-header's date line; never reuse or infer a date from an example, resume, prior
-draft, or job posting.
-When provided, other_experience_context contains role-relevant projects or employment history;
-those details may or may not already be on the resume. Review every page before drafting.
-First identify the strongest concrete experience in those pages, compare it with
-the job requirements, and deliberately use the most relevant example when
-it strengthens the letter. Do not treat this context as decorative or ignore it
-in favor of generic prose. If none of it is genuinely relevant, rely on the resume
-instead rather than forcing a weak connection. You
-may use indexed experience that is not already on the resume, but do not imply
-it appears on the resume unless resume_context also supports it.
-When regeneration tweaks are provided, treat them as direct user feedback and
-apply them while preserving the resume/job truthfulness constraints. When a
-previous_cover_letter_context block is provided, treat regeneration_tweaks as
-feedback on that exact prior draft. Identify what the feedback is asking you to
-change, what previous draft text you are operating on, and then produce the full
-updated LaTeX document.
+Find the applicant's reason to join
 
-Integrate the context deliberately:
-- use job_context for the company, role title, location, and retrieved local role
-  requirements; never infer requirements not present in those retrieved chunks
-- use resume_context only for claims that are directly supported by the resume
-- use other_experience_context for additional truthful projects or employment
-  history that could strengthen the cover letter even if it is not already in
-  resume_context; explicitly prefer items that match job_context requirements
-- use cover_letter_example_tool_results for writing style, paragraph rhythm,
-  specificity, and closing style, not for facts about the current role
-- use regeneration_tweaks as direct edit instructions when present
-- when previous_cover_letter_context is present, revise the previous draft
-  deliberately instead of starting from scratch; preserve strong targeted
-  material, remove or rewrite the parts contradicted by the feedback, and keep
-  the final letter grounded in resume_context and job_context
-- select only the one or two strongest experiences for this role; omit the rest even when they are
-  relevant. A focused story is better than a catalogue of qualifications
-- leave posting_connections and evidence_connections empty. They are legacy output fields, not a
-  checklist, and must not shape or appear in the letter
-- do not paraphrase resume bullets one after another. Use each selected experience to add
-  information a resume normally cannot: the problem or context, why the applicant chose an
-  approach, what they learned or demonstrated, and how that prepares them for a named
-  responsibility in this role
-- synthesize the experiences into smooth prose in the user's voice. Do not dump resume bullets into
-  paragraphs, enumerate tools, list every technology, or awkwardly combine unrelated experiences
-- write only recruiter-facing prose. Never mention "application materials", "saved experience",
-  "approved context", "job_context", "resume_context", "evidence", sources, retrieval, validation,
-  or any application/tool workflow. State the relevant experience directly as the applicant's work
-- a recruiter cannot be expected to recognize a project name. On the first mention
-  of every named project, explain in the same sentence both its recognizable product category
-  and its primary user or system purpose before discussing implementation details or outcomes.
-  For example, use the shape `<Project>, a <plain-language product category> that helps
-  <users or systems do something concrete>, ...`; do not leave a project as an unexplained
-  proper noun. If the approved context does not support that explanation, describe the
-  supported work generically without naming the project. Apply this rule to projects retained
-  from a previous draft during regeneration as well as to newly selected examples
-- write three or four concise paragraphs:
-  1. Introduction, 2-3 sentences: use job_context.cover_letter_company_name and
-     job_context.cover_letter_role_title, explain why this work is genuinely interesting using a
-     concrete responsibility, product, user problem, or technical challenge from the complete job
-     description, and preview the applicant's fit. The recipient header must retain the exact
-     company and role. Mention discovery source or referral only when supplied; never invent one.
-  2. Primary story, 3-5 sentences: develop one relevant experience beyond its resume bullet. Explain
-     the problem or context, the applicant's choices or contribution, the supported outcome, and why
-     that experience matters for a specific responsibility in this role.
-  3. Optional second story, 3-5 sentences: include only when a distinct experience reveals another
-     important dimension of fit. Demonstrate collaboration, communication, ownership, adaptability,
-     leadership, or problem solving through what happened rather than adjective claims. Never invent
-     a number or metric.
-  4. Conclusion, 1-2 sentences: connect the applicant's interest and likely contribution, thank the
-     reader once, and invite further conversation once. Do not repeat the opening, examples, or call
-     to action.
-- use AI work only when both the supplied applicant facts support it and the job asks for AI,
-  machine learning, LLM, or closely related experience. For those roles, when the supplied
-  context contains relevant AI experience, one requirement applies:
-  one story paragraph must discuss that AI work.
-  Name Hermes or a relevant AI-enabled application by name
-  when the source supports it, and explain what the applicant built, how they used AI
-  responsibly, and the supported result. If the context offers an independently
-  directed AI-enabled application, use that concrete product and outcome instead of
-  merely listing coding assistants used in an unrelated job. Mention Hermes when the
-  source identifies it as part of that workflow. Never imply an AI project exists from
-  this instruction alone
-- tailor every body paragraph to the specific position; a paragraph that could
-  be sent unchanged to another company is too generic
-- each story paragraph must explain the relevance of a specific applicant experience to a specific
-  responsibility or requirement, not merely place matching keywords in the same paragraph
-- reuse 1-2 distinctive phrases from the posting when they are truthful and
-  natural, but do not invent company facts or unsupported enthusiasm
-- avoid generic filler such as "your mission", "innovative technology",
-  "cutting-edge", "strong background", or "fast-paced environment" unless the
-  phrase is tied to a concrete posting detail
-- never open with "I am excited to apply", "I am writing to express my interest", "stands out to
-  me because", or another stock application sentence. Do not paste the full database title into the
-  opening when it includes a specialization, season, or year. Open naturally with the supplied
-  concise title, company, and a concrete reason the actual work is compelling. Vary the syntax to
-  suit the role rather than filling a template
+- Read the posting, the applicant's confirmed experience and projects, and
+  their instructions for the letter. Find a verifiable detail about the
+  team's product, users, or way of working that matters to this applicant.
+  Explain why they would choose to do this work here. Ground that reason
+  in the applicant's interests and preferred examples when available.
+- Look for a change in what they understand or can do. A tool improved, a
+  project exposed a problem they wanted to solve, or work with users made a
+  particular result matter. Use the change that actually happened. When
+  there is no stated passion, develop a credible learning interest from
+  the work they chose to do, and express it as something to explore.
+- Take direct feedback on a previous letter as guidance. Preserve the
+  parts the applicant liked and change the parts they pointed out.
 
-The output must be a complete LaTeX letter document, not a plain body. Format it
-like a professional letter and mirror the useful structure/style patterns from
-the retrieved examples:
-- use the simple professional LaTeX cover-letter template shape: 11pt
-  letterpaper, 1in margins, sender block, recipient/date block, opening,
-  concise body paragraphs, and closing/signature
-- use a compact article-based letter layout when needed; avoid LaTeX letter
-  class spacing if it risks spilling past one page
-- keep the sender/contact header left-aligned at the top of the page
-- stack the exact company name, location or work arrangement, exact role title,
-  and date in the recipient header; never omit the role title
-- the sender/contact header must contain only the non-empty name, institution,
-  degree, email, and phone values in applicant_profile; place phone below email
-  and copy those identity values exactly. Never infer identity details from
-  examples, the resume, or prior drafts
-- do not include the user's personal website, GitHub, LinkedIn, or extra links
-  in the sender/contact header
-- use proper LaTeX line breaks (`\`) for stacked header/contact/signature
-  lines; never use a single trailing backslash as a line break
-- inspect the complete job description for an explicitly named hiring contact,
-  recruiter, or hiring manager. If one is clearly identified, address that person
-  as `Dear <name>,`; otherwise use `Dear Hiring Manager,`. Never use
-  `Dear Hiring Team,`, and never guess a person's name
-- keep the salutation in its own flush-left paragraph. Never place the first body
-  sentence on the same line or in the same LaTeX paragraph as the salutation
-- do not put manual `\` line breaks after body paragraphs; separate body
-  paragraphs with blank lines
-- do not use the fullpage or parskip packages
-- do not use LaTeX's built-in \address{...} sender block
-- escape LaTeX special characters in body text, including `\&` for ampersands
-  such as `R\&D` and `\%` for percentages such as `50\%`
-- include opening and closing lines
-- keep paragraphs visually separated with vertical space
-- ensure the generated PDF is at most one page at 11pt
-- target roughly 200-300 words of body text; a shorter complete letter is better than
-  padding, repetition, or a weak example, so never add text merely to fill the page
-- keep it concise, specific, and honest
-- mention only experience supported by resume_context or other_experience_context
-- align wording with the posting's strongest requirements
-- never use em dashes. Do not emit Unicode em dashes, en dashes, horizontal
-  bars, LaTeX --- sequences, LaTeX -- sequences, `\textemdash`, or
-  `\textendash`. If resume, job, or example text contains dash punctuation,
-  rewrite it with commas, semicolons, parentheses, or short sentences instead
-- use plain ASCII apostrophes and quotes in body text; do not emit smart quotes
-  or hidden/control characters
+Connect past work to something they would like to learn
 
-Use this exact LaTeX scaffold for the `latex` field, replacing only the
-recipient lines, greeting if needed, and body paragraphs:
-\documentclass[letterpaper,11pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage[hidelinks]{hyperref}
-\setlength{\parskip}{0.55em}
-\setlength{\parindent}{1.5em}
-\hyphenpenalty=10000
-\exhyphenpenalty=10000
-\setlength{\emergencystretch}{2em}
-\pagestyle{empty}
-\begin{document}
-\noindent <applicant_profile.latex_sender_block>\par
-\vspace{1.1em}
-\noindent <exact company>\\
-<location or work arrangement>\\
-<exact role title>\\
-<date>\par
-\vspace{1.1em}
+- Open with a concrete part of the employer's work or an experience that
+  explains the applicant's interest. Introduce the role and the specific
+  reason to join the team early. Give each opening sentence a distinct
+  purpose.
+- Develop one or two real experiences. Explain what the applicant tried,
+  decided, built, or found out. Give a personal project room when it shows
+  what they chose to learn or build on their own. Use a verified result
+  to substantiate the story and credit teammates accurately. Make it clear
+  what the experience made them curious to understand next.
+- Name a skill the applicant would like to develop by working alongside
+  the team's engineers or other specialists. For engineering roles, show
+  a specific practice they want to learn, such as setting boundaries
+  between services, designing for failures, or reproducing a failure in
+  a test. Use the product and its users to explain why that work matters.
+  Describe what the applicant would learn to do with a teammate and a
+  current skill they could apply to the same problem. Develop the story
+  already in the letter. Describe plausible collaboration and verify any
+  claims about how the team works. A small project can illustrate the
+  connection when it fits the role.
+  Keep it brief and grounded in what the team does. Describe how the team
+  could check whether it helped. A relevant contribution to existing work
+  is also enough.
+- Use first person for honest curiosity, choices, and contributions. Let a
+  specific ambition carry the enthusiasm. Keep the prose composed and
+  conversational enough to sound like the applicant. Cut stock openings,
+  repeated "I want" sentences, flattery, and lists of accomplishments that
+  do not explain why the applicant is interested in this work.
 
-\noindent Dear <explicitly named hiring contact, or Hiring Manager>,\par
-\vspace{0.35em}
+Write about AI when it serves the story
 
-<three concise body paragraphs, or four only when a distinct second story warrants it>
+- Show what changed in the applicant's practice if that change is relevant
+  to the role. Explain how they use AI to research a problem, learn an
+  unfamiliar tool, build a prototype, or verify its behavior. An
+  independently built project can make that change tangible.
+- Be clear about which tools the applicant used during development and
+  which capabilities they built into the project. If a frontier model is
+  relevant and the applicant asks to name it, use its precise public name
+  when known. Describe their own use only when supported.
+- Connect that experience to a specific AI workflow or question the
+  applicant would like to learn about at this employer. Choose another
+  interest for roles where it has a stronger connection.
 
-\vspace{0.35em}
-\noindent Sincerely,\\[12pt]
-<applicant_profile.signature_name>
-\end{document}
+Close with an interview invitation
 
-Do not include resume-only packages or commands such as `fancyhdr`, `titlesec`,
-`fullpage`, `parskip`, `\pdfgentounicode`, `glyphtounicode`, or
-`\input{glyphtounicode}`.
+- Before the sign-off, write a brief closing paragraph that conveys real
+  interest in joining and explicitly asks for or welcomes an interview.
+  Say what the applicant could discuss with the team when it adds something
+  specific. Use direct language such as "I'd welcome an interview."
+  Write the closing in the applicant's voice and vary it across letters.
+  Keep it confident, warm, and free of a repeated project pitch.
 
-Return only JSON matching:
-{"latex":"...","summary":"...","example_ids":[1,2],
- "posting_connections":[],"evidence_connections":[]}
+Review and prepare the letter
+
+- Read it as a hiring manager. Can you tell why the applicant would join
+  this company and this team? If the reason would still read the same
+  with another employer's name in its place, ground it in a more specific
+  detail. Check that a reader can name the practice the applicant wants
+  to develop, the problem they would work through with teammates to learn
+  it, and the current skill they could bring to that work. Check that the
+  final paragraph explicitly welcomes an interview.
+- Keep the finished letter to one page at the standard PDF settings. Let
+  the story determine the length and paragraph breaks. If it runs long, cut
+  repetition and weaker details first. Use ordinary punctuation and keep the
+  text free of em dashes.
+- Use the employer name and a clean, recognizable job title in the PDF
+  heading, with the verified location when available. Remove requisition
+  numbers, job IDs, and internal posting or term codes. Keep meaningful
+  title details such as the team, specialization, seniority, internship,
+  or co-op designation. Include a season or year in ordinary words when
+  it helps identify the role. Address a named hiring contact when the
+  posting clearly identifies one. Otherwise use "Dear Hiring Manager,".
+- For the portable PDF renderer, supply only the plain-text body, with a blank
+  line between paragraphs. The renderer adds the header, date, greeting, and
+  signature. For a text-only form, use the same prose with a greeting and
+  sign-off if the field calls for a complete letter. Follow any employer
+  requirement for applicant-authored text.

@@ -3,6 +3,7 @@
 
 import argparse
 import base64
+from hashlib import sha256
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -14,6 +15,8 @@ import threading
 from urllib.parse import urlsplit
 
 from applicant_profile import ProfileError, ProfileStore, read_json, write_private
+from browser_use_cli_form import evaluate
+from browser_use_cli_tabs import inventory_contexts
 from draft_guard import clean_url, draft_url, load_state
 
 
@@ -25,6 +28,43 @@ MAX_PDF_BYTES = 8_000_000
 
 class BridgeUnavailable(RuntimeError):
     pass
+
+
+class ExtensionNotConnected(BridgeUnavailable):
+    pass
+
+
+CHECK_WORKER = r"""(url, id) => {
+  const config = globalThis.AUTOAPPLY_CONFIG;
+  const manifest = globalThis.chrome?.runtime?.getManifest();
+  return location.href === url && chrome.runtime.id === id &&
+    manifest?.name === "File Upload Helper" &&
+    manifest.background?.service_worker === "autoapply-worker.js" &&
+    typeof tick === "function" && typeof running === "boolean" &&
+    typeof config?.base === "string" && /^http:\/\/127\.0\.0\.1:\d+$/.test(config.base) &&
+    config.token === "";
+}"""
+
+WAKE_WORKER = """(base, token) => {
+  const config = globalThis.AUTOAPPLY_CONFIG;
+  if (config?.token !== "") return false;
+  (async () => {
+    for (let i = 0; running && i < 20; i++) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (running || config.token !== "") return;
+    const previousBase = config.base;
+    config.base = base;
+    config.token = token;
+    try {
+      await tick();
+    } finally {
+      config.base = previousBase;
+      config.token = "";
+    }
+  })();
+  return true;
+}"""
 
 
 def existing_autoapply_bridge(project):
@@ -45,8 +85,11 @@ def existing_autoapply_bridge(project):
             if assignment is None:
                 raise ValueError
             config = json.loads(assignment[1])
+            if config.get("token") == "":
+                continue
             base = urlsplit(config["base"])
-            if base.scheme != "http" or base.hostname not in {"127.0.0.1", "localhost"} or not base.port:
+            if (base.scheme != "http" or base.hostname not in {"127.0.0.1", "localhost"} or
+                    not base.port or not isinstance(config.get("token"), str)):
                 raise ValueError
             return {"port": base.port, "token": config["token"], "extension_directory": str(folder)}
         except (OSError, KeyError, TypeError, ValueError) as error:
@@ -61,7 +104,8 @@ def bridges(store, project):
     config_path = store.directory / "attachment-bridge.json"
     if config_path.is_file():
         config = read_json(config_path)
-        if existing is None or config["port"] != existing["port"] or config["token"] != existing["token"]:
+        if config.get("token") and (existing is None or
+                (config["port"], config["token"]) != (existing["port"], existing["token"])):
             yield {**config, "extension_directory": str(store.directory / "attachment-extension")}
 
 
@@ -147,6 +191,7 @@ class AttachmentRequestHandler(BaseHTTPRequestHandler):
         with bridge.lock:
             if self.path == "/poll":
                 bridge.extension_id = body.get("extension_id")
+                bridge.claimed.set()
                 if bridge.command is None:
                     bridge.done.set()
                     self.reply(200, None)
@@ -163,7 +208,7 @@ class AttachmentRequestHandler(BaseHTTPRequestHandler):
                 self.reply(409, {"error": "Unexpected attachment result"})
 
 
-def send_to_extension(config, target=None, timeout=48):
+def send_to_extension(config, target=None, timeout=48, *, wake=None):
     try:
         connection = ThreadingHTTPServer(("127.0.0.1", config["port"]), AttachmentRequestHandler)
     except OSError as error:
@@ -176,16 +221,24 @@ def send_to_extension(config, target=None, timeout=48):
         server.extension_id = None
         server.delivered = False
         server.lock = threading.Lock()
+        server.claimed = threading.Event()
         server.done = threading.Event()
-        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
         worker.start()
         try:
+            if wake is not None:
+                wake(server.server_port, server.token)
+                if not server.claimed.wait(5):
+                    with server.lock:
+                        if not server.claimed.is_set():
+                            server.command = None
+                            raise ExtensionNotConnected("The loaded File Upload Helper did not connect.")
             if not server.done.wait(timeout):
                 with server.lock:
                     if server.delivered:
                         raise RuntimeError("The extension received the upload but did not return a result. Inspect the employer form before retrying.")
                     server.command = None
-                    raise BridgeUnavailable(
+                    raise ExtensionNotConnected(
                         f"No Chrome upload extension connected on local port {config['port']}."
                     )
             result = server.result if target is not None else {"extension_id": server.extension_id}
@@ -197,14 +250,61 @@ def send_to_extension(config, target=None, timeout=48):
     return result
 
 
-def connect(store, project, target=None):
+def connect_loaded_helper(cdp, target):
+    """Use a private, per-command connection for this Chrome profile's unconfigured helper."""
+    contexts = inventory_contexts(cdp("Target.getTargets")["targetInfos"])
+    for worker, extension_id, upload_worker in contexts:
+        if not upload_worker:
+            continue
+        try:
+            session = cdp("Target.attachToTarget", targetId=worker["targetId"], flatten=True)["sessionId"]
+        except RuntimeError:
+            continue
+        try:
+            if evaluate(cdp, session, CHECK_WORKER, worker["url"], extension_id):
+                def wake(port, token):
+                    if not evaluate(cdp, session, WAKE_WORKER, f"http://127.0.0.1:{port}", token):
+                        raise ExtensionNotConnected("The loaded File Upload Helper changed before connection.")
+
+                return send_to_extension({"port": 0, "token": secrets.token_urlsafe(32)}, target, wake=wake)
+        finally:
+            try:
+                cdp("Target.detachFromTarget", sessionId=session)
+            except RuntimeError:
+                pass
+    return None
+
+
+def connect(store, project, target=None, *, batch_cache=None, cdp=None):
+    disconnected = set(read_json(batch_cache)) if batch_cache and batch_cache.exists() else set()
     unavailable = None
+    if cdp is not None and "loaded-helper" not in disconnected:
+        try:
+            result = connect_loaded_helper(cdp, target)
+            if result is not None:
+                return {**result, "extension": "File Upload Helper"}
+        except ExtensionNotConnected as error:
+            unavailable = error
+            if batch_cache is not None:
+                disconnected.add("loaded-helper")
+                write_private(batch_cache, json.dumps(sorted(disconnected)) + "\n")
     for config in bridges(store, project):
+        key = sha256(f"{config['port']}:{config['token']}".encode()).hexdigest()
+        if key in disconnected:
+            unavailable = ExtensionNotConnected(
+                f"No Chrome upload extension connected on local port {config['port']} earlier in this batch."
+            )
+            continue
         try:
             return {
                 **send_to_extension(config, target),
                 "extension_directory": config["extension_directory"],
             }
+        except ExtensionNotConnected as error:
+            unavailable = error
+            if batch_cache is not None:
+                disconnected.add(key)
+                write_private(batch_cache, json.dumps(sorted(disconnected)) + "\n")
         except BridgeUnavailable as error:
             unavailable = error
     if unavailable is not None:
@@ -212,7 +312,7 @@ def connect(store, project, target=None):
     raise ProfileError("No existing AutoApply upload build or portable attachment extension was found.")
 
 
-def attach(store, args):
+def attach(store, args, *, cdp=None):
     active = load_state(store.directory / "active-draft.json")["active"]
     if not active or active["tab_id"] != str(args.tab_id) or draft_url(active["url"]) != draft_url(args.url):
         raise ValueError("The tab and URL must match the active draft.")
@@ -240,12 +340,14 @@ def attach(store, args):
         shared_field = len(payloads) == 2 and field_label(payloads[0]["label"]) == field_label(payloads[1]["label"])
         if shared_field:
             selection = {**payloads[0], "additionalFiles": [payloads[1]]}
-        result = connect(store, args.autoapply_dir, {
+        target = {
             "tab_id": args.tab_id,
             "expected_url": args.url,
             "frame_url": clean_url(args.frame_url) if args.frame_url else None,
             "documents": [selection] if shared_field else payloads,
-        })
+        }
+        result = connect(store, args.autoapply_dir, target,
+                         batch_cache=getattr(args, "batch_cache", None), cdp=cdp)
         if shared_field and result["receipts"]:
             receipt = result["receipts"][0]
             files = receipt.get("files", [receipt.get("file")])
@@ -261,7 +363,7 @@ def attach(store, args):
     return {"receipts": receipts}
 
 
-def main():
+def main(argv=None, *, cdp=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path)
     parser.add_argument("--autoapply-dir", type=Path, default=AUTOAPPLY_DIRECTORY,
@@ -277,20 +379,22 @@ def main():
     upload.add_argument("--resume-field")
     upload.add_argument("--cover-letter-field")
     upload.add_argument("--cover-letter", type=Path)
-    args = parser.parse_args()
+    upload.add_argument("--batch-cache", type=Path,
+                        help="Temporary file shared only by this batch in the same Chrome session.")
+    args = parser.parse_args(argv)
     store = ProfileStore(args.data_dir)
     try:
         if args.command == "build":
             result = build_extension(store, args.port)
         elif args.command == "check":
-            result = connect(store, args.autoapply_dir)
+            result = connect(store, args.autoapply_dir, cdp=cdp)
         else:
             if bool(args.cover_letter_field) != bool(args.cover_letter):
                 parser.error("Provide the cover-letter field and PDF path together.")
             labels = [label for label in (args.resume_field, args.cover_letter_field) if label]
             if not labels or not all(field_label(label) for label in labels):
                 parser.error("Provide observed file-field labels.")
-            result = attach(store, args)
+            result = attach(store, args, cdp=cdp)
     except (OSError, ValueError, RuntimeError, ProfileError) as error:
         parser.exit(1, f"Attachment helper: {error}\n")
     print(json.dumps(result, ensure_ascii=False, indent=2))

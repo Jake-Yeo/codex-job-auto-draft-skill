@@ -11,7 +11,7 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from attach_documents import attach
+from attach_documents import attach, connect, ExtensionNotConnected
 from draft_guard import draft_url
 
 
@@ -68,6 +68,19 @@ class DraftRecoveryTests(unittest.TestCase):
         self.assertEqual(active["tab_id"], "43")
         self.assertEqual(active["url"], BACK_END_QUESTIONS.split("?")[0])
 
+    def test_pending_save_keeps_the_original_draft_active(self):
+        self.start(BACK_END)
+        self.guard("note", "--tab-id", "42", "--waiting-for-save", "--next", "Save in progress")
+        self.guard("defer", "--tab-id", "42", "--reason", "form", "--next", "Try another tab",
+                   error="A save is pending")
+        self.guard("finish", "--tab-id", "42", "--url", BACK_END, "--verified", error="A save is pending")
+        self.guard("start", "--tab-id", "43", "--url", FRONT_END, "--employer", "Example", "--role",
+                   "Another role", "--next", "Fill the form", error="Another draft is active")
+        self.assertEqual(self.guard("status")["active"]["url"], BACK_END)
+        self.guard("note", "--tab-id", "42", "--save-settled", "--next", "Review")
+        self.guard("finish", "--tab-id", "42", "--url", BACK_END, "--verified")
+        self.assertIsNone(self.guard("status")["active"])
+
     def test_attachment_helper_uses_the_current_step_but_rejects_the_other_role(self):
         self.start(BACK_END)
         materials = self.directory / "materials"
@@ -96,6 +109,30 @@ class DraftRecoveryTests(unittest.TestCase):
         self.assertNotEqual(draft_url(BACK_END), draft_url(FRONT_END))
         self.assertNotEqual(draft_url(BACK_END), draft_url("https://example.icims.com/jobs/candidate"))
         self.assertNotEqual(draft_url(BACK_END), draft_url(BACK_END.replace("example.", "other.")))
+
+    def test_upload_waits_once_per_disconnected_bridge(self):
+        config = {"port": 8771, "token": "fixture", "extension_directory": "fixture"}
+        cache = self.directory / "upload-bridge.json"
+        with patch("attach_documents.bridges", return_value=[config]), \
+                patch("attach_documents.send_to_extension",
+                      side_effect=ExtensionNotConnected("No extension connected")) as send:
+            for _ in range(2):
+                with self.assertRaises(ExtensionNotConnected):
+                    connect(None, None, batch_cache=cache)
+            send.assert_called_once()
+            self.assertNotIn(config["token"], cache.read_text())
+
+    def test_an_upload_error_does_not_disable_the_bridge(self):
+        config = {"port": 8771, "token": "fixture", "extension_directory": "fixture"}
+        cache = self.directory / "upload-bridge.json"
+        with patch("attach_documents.bridges", return_value=[config]), \
+                patch("attach_documents.send_to_extension",
+                      side_effect=[RuntimeError("Delivered and no receipt"), {"receipts": []}]) as send:
+            with self.assertRaisesRegex(RuntimeError, "no receipt"):
+                connect(None, None, batch_cache=cache)
+            self.assertFalse(cache.exists())
+            self.assertEqual(connect(None, None, batch_cache=cache)["receipts"], [])
+            self.assertEqual(send.call_count, 2)
 
 
 if __name__ == "__main__":

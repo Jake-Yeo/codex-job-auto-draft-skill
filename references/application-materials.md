@@ -18,7 +18,7 @@ Reinspect the employer form after selection. The filename and the settled attach
 
 An upload timeout is a reason to inspect the form and repair the interaction. Check whether parsing is still running, the file already appears, or the site reports a type or size error. Look for a portal consent or privacy dialog triggered by the file picker. Confirm the original file exists and the control is for the intended document. Upload the résumé before filling fields when parsing can replace profile values.
 
-Follow the [upload order in the skill](../SKILL.md#fill-check-finish). On Ashby, attach the PDF in the required **Resume** field. **Autofill from resume** is a separate control. For the Path 2 file-picker fallback, locate the observed file input and call `upload_file(selector, absolute_path)` on the verified employer tab. If the input is in a frame or shadow tree, resolve that input’s node in the correct CDP session and call `cdp("DOM.setFileInputFiles", session_id=frame_session, files=[absolute_path], backendNodeId=input_node)`. If approval remains pending or the input rejects the file, preserve the attachment blocker and continue accessible fields.
+Follow the [upload order in the skill](../SKILL.md#fill-check-finish). On Ashby, attach the PDF in the required **Resume** field. **Autofill from resume** is a separate control. For the Path 2 file-picker fallback, locate the observed file input and use `stage_files_once(cdp, session_id, selector, absolute_path)` from `browser_use_cli_form.py`. If the input is in a frame or shadow tree, resolve that input’s node in the correct CDP session and call `cdp("DOM.setFileInputFiles", session_id=frame_session, files=[absolute_path], backendNodeId=input_node)` once. Workday and Scope can clear the input after accepting the file. Inspect the visible upload state or staged filename before retrying; an empty input alone can cause a duplicate upload. If approval remains pending or the input rejects the file, continue the accessible fields and preserve the remaining attachment blocker if recovery fails.
 
 When using the file picker, use the visible **Choose file** label to identify its associated input if the input is hidden, as on Workable. In an embedded iCIMS form, if the **My Computer** button does not bring up the chooser, locate the observed file input inside its iframe and set the file through CDP in that frame. Verify the attached filename after parsing.
 
@@ -62,14 +62,21 @@ The portable folder includes the PDF attachment extension and its builder. Gener
 
 From the live draft, note the tab ID, exact employer URL and each distinct visible file-field label. If the input is in an iframe, pass its observed origin and path as `--frame-url` without embedded tokens. Match the dedicated résumé and cover-letter sections, including when their buttons both say **Attach**. Check for an existing attachment before issuing the command.
 
-~~~sh
-python3 /path/to/job-applications/scripts/attach_documents.py upload \
-  --tab-id TAB_ID --url 'OBSERVED_EMPLOYER_URL' \
-  --resume-field 'Resume/CV' \
-  --cover-letter-field 'Cover Letter' --cover-letter '/path/to/approved.pdf'
+~~~python
+# In the local Path 2 CLI, with the skill's scripts directory on sys.path.
+from attach_documents import main as attachments
+
+attachments([
+    "upload", "--tab-id", "TAB_ID", "--url", "OBSERVED_EMPLOYER_URL",
+    "--batch-cache", "/path/to/this-batch-temp-dir/upload-bridge.json",
+    "--resume-field", "Resume/CV",
+    "--cover-letter-field", "Cover Letter", "--cover-letter", "/path/to/approved.pdf",
+], cdp=cdp)
 ~~~
 
-Omit the flags for any document you do not need to attach. The résumé comes from the private profile. A generated letter lives in the private `materials` folder, and an applicant-approved existing one can be saved as `documents.cover_letter`. Use the exact observed labels so the uploader can distinguish both fields. If one upload is blocked, keep filling and use the browser file picker for that PDF if permitted. Use the browser file picker for non-PDFs. Verify actual attachment results on the form before proceeding or retrying. The bridge normally waits for the extension’s polling interval of up to 30 seconds. Use the helper’s normal connection window instead of a timed five-second probe. If the real attempt finds no connected upload extension, use the scoped file picker in the current Chrome session and keep filling. An inventory connection alone does not verify the PDF bridge.
+Omit the flags for any document you do not need to attach. The résumé comes from the private profile. A generated letter lives in the private `materials` folder, and an applicant-approved existing one can be saved as `documents.cover_letter`. Use the exact observed labels so the uploader can distinguish both fields. If one upload is blocked, keep filling and use the browser file picker for that PDF if permitted. Use the browser file picker for non-PDFs. Verify actual attachment results on the form before proceeding or retrying.
+
+Path 2 can connect an already enabled **File Upload Helper** that has no bridge credential. It uses an authenticated, temporary connection for the upload. When using a separately configured PDF extension, the first real upload gives that extension its normal connection window, including the extension's polling interval of up to 30 seconds. The configured route also supports the same upload arguments via `python3 scripts/attach_documents.py upload` from the skill directory. Create one temporary directory with `mktemp -d` at the start of the batch and pass the same `--batch-cache` path to each upload. If no extension connects on a route, subsequent attempts through that route return promptly. Inspect the employer form after a delivery error or a field-specific rejection. Use a fresh cache after a Chrome profile change, extension reload, or new batch. For setup or troubleshooting, call `attachments(["check"], cdp=cdp)` to verify the connection without making an upload. An inventory connection alone does not verify the PDF bridge.
 
 ## Education and experience
 
@@ -77,9 +84,9 @@ Use the saved education and work entries. Preserve supported dates, title, organ
 
 Fill the major or **Field of Study** from `education.field_of_study` whenever the portal offers it. Try the exact major first. Use a catalog equivalent only after checking the settled options. On Workday, verify the committed field of study separately from the school and degree before advancing and on Review.
 
-For Workday month/year steppers, focus and enter each segment with the supported keyboard controls, then move focus away to commit it. A painted value is not proof the containing date was saved. Check for date validation errors and confirm Save and Continue advances. Do not use ordinary paste/fill calls for these segmented controls; they can produce invalid months or years. Use the visible calendar if needed, then inspect again.
+For Workday month/year steppers, focus and enter each segment with the supported keyboard controls, then move focus away to commit it. Enter a single-digit month without a leading zero when targeting the month segment directly, because the widget can advance to the year as soon as it accepts the month. Enter the month and year through their segment controls to prevent ordinary paste or text fills from misplacing digits. Confirm the displayed month and year, check for date validation errors, and confirm that Save and Continue advances. Verify the date persisted after saving. Use the visible calendar if the segmented controls reject the date.
 
-Workday can display a filled **Role Description** and save it as **No Response** if the input never loses focus. Enter the description and move focus away from the editor before advancing. Verify both entries on Review. If a description is missing, use the wizard's observed Back controls to repair it in the same draft.
+Workday can display a filled **Role Description** and save it as **No Response** if the input never loses focus. Fill the complete approved descriptions for the observed textarea IDs together with [the batch text helper](browser-workflow.md#batch-controls-on-the-current-page). It moves focus away from each editor and checks the exact text including line breaks. Verify both saved entries on Review. If a description is missing, use the wizard's observed Back controls to repair it in the same draft.
 
 On Workable month/year fields, enter the six digits with the supported sequential key action, then press Escape to close that calendar before opening the next date. Verify the committed month and year, click Update, and check the saved card. If the end-date control rejects future dates for an in-progress degree, leave it open where possible and give the expected graduation date in the relevant screening answer.
 
@@ -93,9 +100,16 @@ When a character limit applies, keep measurable results and delivered scope firs
 
 ## Skills
 
-Start with the private `skills` module and supplement from the résumé and confirmed work. Choose the closest accurate tags for the role and retain supported existing chips. Verify each selected option before searching for the next. Distinguish tool use and integration from work the applicant has not claimed.
+Use the complete private `skills` module, including saved additions, plus supported technologies from the current résumé, approved work and project descriptions, and applicant corrections. Read the entire inventory even if the résumé parser imported some tags. Include specific services and protocols alongside broader skills when they represent distinct experience. Search for all supported skills the control can hold. Use the role to order them and to prioritize if the portal enforces a limit. Preserve correct existing chips and merge equivalent spellings. Distinguish tool use and integration from work the applicant has not claimed.
 
-In Workday’s **Type to Add Skills** control, type a supported skill and press Enter. A temporary **No Items** result can disappear as the search settles. If Enter opens the results menu, select the matching option. Verify its selected chip before searching for the next skill. Preserve existing chips, save the page, and check the skills on Review, including the **More** list if offered.
+In Workday’s **Type to Add Skills** control, pass the complete inventory to `add_skills` from `browser_use_cli_workday.py`. It replaces each search value, presses Enter, matches the observed choices in that control, and verifies the committed chip. A temporary **No Items** response can disappear as the search settles. Inspect `unavailable` for accurate alternatives and `needs_attention` for results that still need repair; add remaining supported tags where the portal allows them. For a skill requiring manual repair, enter the supported skill and press Enter. If a menu opens, choose the accurate option and verify its selected chip. Keep a longer batch running on this draft, or break the same inventory into consecutive groups within this tab. Save and check the selected skills on Review, expanding **More** when present.
+
+~~~python
+# Same attached Path 2 session. Use all saved and verified skills for this applicant.
+from browser_use_cli_workday import add_skills
+
+print(add_skills(cdp, session_id, all_supported_skills, field_id="OBSERVED_SKILLS_INPUT_ID"))
+~~~
 
 For long searchable Greenhouse dropdowns, type the exact choice to reduce the menu to one result, inspect that result, and press Enter to commit it. Verify the selected value after the menu closes.
 
@@ -117,13 +131,13 @@ Use the dedicated LinkedIn and GitHub fields when offered. If only one generic w
 
 ## Cover letters
 
-Follow the narrative and voice guidance in the [cover-letter prompt](cover-letter-prompt.txt), with the applicant's chosen style examples. Use the employer's actual role description, two or three job needs, and relevant evidence from the private profile. Use an exact role and employer name in the heading. Write three or four short paragraphs with one or two concrete experience examples and a warm close. Use an applicant-authored version when the employer requires it.
+Follow the narrative and voice guidance in the [cover-letter prompt](cover-letter-prompt.txt), with the applicant's chosen style examples. Use the employer's actual role description, two or three job needs, and relevant evidence from the private profile. Use the employer name and a clean role title in the heading. Leave requisition numbers and internal posting codes out of the letter. Use concrete experience to show why the applicant would be excited to join this employer and team. Describe the engineering skill or other role-specific practice they would like to develop alongside the team and how they could apply a current skill to the same work. Close by explicitly welcoming an interview. Follow the prompt's review steps before rendering. Fit the finished letter on one page. Use an applicant-authored version when the employer requires it.
 
 For a PDF, put the approved letter body on standard input. The portable renderer takes the header's applicant information from the local profile and saves a one-page PDF in its private materials directory. Use the returned path for attachments. Use a separate job key for each application or revision.
 
 ~~~sh
 uv run --with reportlab --with pypdf python /path/to/job-applications/scripts/cover_letter.py \
-  --job-key role-application --company 'Employer' --role 'Exact role title' < letter-body.txt
+  --job-key role-application --company 'Employer' --role 'Readable role title' < letter-body.txt
 ~~~
 
-The generated filename follows `Company_Short_Role_Applicant_Name_Cover_Letter.pdf`. Use the displayed exact role in the PDF and a short role in its filename when needed. Follow the employer's requested format. When a site only has a text field, enter the saved prose there and verify it persisted.
+The generated filename follows `Company_Short_Role_Applicant_Name_Cover_Letter.pdf`. Use the readable role title in the PDF and a short role in its filename when needed. Follow the employer's requested format. When a site only has a text field, enter the saved prose there and verify it persisted.
