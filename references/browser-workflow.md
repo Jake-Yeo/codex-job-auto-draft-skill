@@ -53,6 +53,24 @@ Use `draft_guard.py note --tab-id TAB_ID --waiting-for-save --next 'CURRENT_SAVE
 
 Use the steps that match the controls and errors on the current form. Record new repairs by portal and symptom so they can be reused.
 
+### Hidden or stuck city fields
+
+Use the city picker when it is available. If the city input is hidden or the picker fails to commit a selection, inspect the city and coordinate inputs on the draft. Use `repair_city` when the inputs belong to the same form and the page has loaded Google Places. Search with the applicant's city, region, and country. The helper fills the city and returned coordinates together and checks the values in the form.
+
+~~~python
+from browser_use_cli_location import repair_city
+
+session_id = switch_tab("OBSERVED_TARGET_ID", activate=False)
+print(repair_city(
+    cdp, session_id, "OBSERVED_APPLICATION_URL", "CITY, REGION, COUNTRY",
+    city_selector="OBSERVED_CITY_INPUT_SELECTOR",
+))
+~~~
+
+Use a stable ID or name selector for the city input. The coordinate inputs default to `latitude` and `longitude`. Pass their observed names with `latitude_name` and `longitude_name` if the form uses different names.
+
+If it returns `choose_city`, match the listed suggestions to the applicant's saved city and rerun with `choice="EXACT_SUGGESTION"`. Verify the displayed city and attached PDFs on the current form. If the lookup stays blocked, preserve the remaining location field for retry and continue with the other accessible drafts.
+
 ### Workday
 
 - Type the lookup value and press Enter. If it commits immediately, verify the selected chip. If a menu opens, choose the matching option and verify it after closing the menu. For chained source fields, select the accurate category and then its matching detail. If clicking a single-choice row does not commit it, use the visible radio button or exact row in a fresh screenshot. Check the resulting value on Review.
